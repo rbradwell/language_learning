@@ -1,4 +1,5 @@
 // models/Vocabulary.js
+const { DataTypes } = require('sequelize');
 module.exports = (sequelize) => {
     const Vocabulary = sequelize.define('Vocabulary', {
       id: {
@@ -28,7 +29,9 @@ module.exports = (sequelize) => {
     });
   
     Vocabulary.associate = (models) => {
-      Vocabulary.belongsTo(models.Category);
+      Vocabulary.belongsTo(models.Category, {
+        foreignKey: 'categoryId' 
+      });
       Vocabulary.hasMany(models.UserAnswer);
     };
   

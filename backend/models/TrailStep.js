@@ -1,4 +1,5 @@
   // models/TrailStep.js
+  const { DataTypes } = require('sequelize');
   module.exports = (sequelize) => {
     const TrailStep = sequelize.define('TrailStep', {
       id: {
@@ -33,9 +34,15 @@
     });
   
     TrailStep.associate = (models) => {
-      TrailStep.belongsTo(models.Trail);
-      TrailStep.hasMany(models.Exercise);
-      TrailStep.hasMany(models.UserProgress);
+      TrailStep.belongsTo(models.Trail, {
+        foreignKey: 'trailId'
+      });
+      TrailStep.hasMany(models.Exercise, {
+        foreignKey: 'trailStepId'
+      });
+      TrailStep.hasMany(models.UserProgress, {
+        foreignKey: 'trailStepId'
+      });
     };
   
     return TrailStep;

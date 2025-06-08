@@ -1,4 +1,5 @@
 // models/Category.js
+const { DataTypes } = require('sequelize');
 module.exports = (sequelize) => {
     const Category = sequelize.define('Category', {
       id: {
@@ -24,7 +25,9 @@ module.exports = (sequelize) => {
     });
   
     Category.associate = (models) => {
-      Category.hasMany(models.Vocabulary);
+      Category.hasMany(models.Vocabulary, {
+        foreignKey: 'categoryId'
+      });
       Category.hasMany(models.Trail);
     };
   
