@@ -1,93 +1,81 @@
-// App.js - Replace your entire App.js file with this code
-import React, { useState, useEffect } from 'react';
+// App.js
+import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { Provider as PaperProvider } from 'react-native-paper';
-import { StatusBar } from 'expo-status-bar';
-import * as SecureStore from 'expo-secure-store';
-
-// Screens
-import LoginScreen from './src/screens/LoginScreen';
-import RegisterScreen from './src/screens/RegisterScreen';
-import HomeScreen from './src/screens/HomeScreen';
-import LoadingScreen from './src/screens/LoadingScreen';
-
-// Context
-import { AuthProvider, useAuth } from './src/context/AuthContext';
-
-// Theme
-import { theme } from './src/theme/theme';
+import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import AuthService from './src/services/authService';
+import LoginScreen from './src/components/LoginScreen';
+import RegisterScreen from './src/components/RegisterScreen';
+import MainScreen from './src/components/MainScreen';
 
 const Stack = createStackNavigator();
 
-// Auth Navigator - for login/register
-const AuthNavigator = () => (
-  <Stack.Navigator 
-    initialRouteName="Login"
-    screenOptions={{
-      headerStyle: {
-        backgroundColor: theme.colors.primary,
-      },
-      headerTintColor: '#fff',
-      headerTitleStyle: {
-        fontWeight: 'bold',
-      },
-    }}
-  >
-    <Stack.Screen 
-      name="Login" 
-      component={LoginScreen} 
-      options={{ title: 'Sign In' }}
-    />
-    <Stack.Screen 
-      name="Register" 
-      component={RegisterScreen} 
-      options={{ title: 'Create Account' }}
-    />
-  </Stack.Navigator>
-);
+const App = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const navigationRef = useRef();
 
-// Main Navigator - for authenticated users
-const MainNavigator = () => (
-  <Stack.Navigator
-    screenOptions={{
-      headerStyle: {
-        backgroundColor: theme.colors.primary,
-      },
-      headerTintColor: '#fff',
-      headerTitleStyle: {
-        fontWeight: 'bold',
-      },
-    }}
-  >
-    <Stack.Screen 
-      name="Home" 
-      component={HomeScreen} 
-      options={{ title: 'Language Learning' }}
-    />
-  </Stack.Navigator>
-);
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
 
-// App Navigator - decides which navigator to show
-const AppNavigator = () => {
-  const { user, isLoading } = useAuth();
+  const checkAuthStatus = async () => {
+    try {
+      const authenticated = await AuthService.isAuthenticated();
+      setIsAuthenticated(authenticated);
+    } catch (error) {
+      console.error('Auth check error:', error);
+      setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to handle auth state changes
+  const handleAuthSuccess = () => {
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+  };
 
   if (isLoading) {
-    return <LoadingScreen />;
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
   }
 
-  return user ? <MainNavigator /> : <AuthNavigator />;
+  return (
+    <NavigationContainer ref={navigationRef}>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {isAuthenticated ? (
+          <Stack.Screen name="Main">
+            {(props) => <MainScreen {...props} onLogout={handleLogout} />}
+          </Stack.Screen>
+        ) : (
+          <>
+            <Stack.Screen name="Login">
+              {(props) => <LoginScreen {...props} onAuthSuccess={handleAuthSuccess} />}
+            </Stack.Screen>
+            <Stack.Screen name="Register">
+              {(props) => <RegisterScreen {...props} onAuthSuccess={handleAuthSuccess} />}
+            </Stack.Screen>
+          </>
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
 };
 
-export default function App() {
-  return (
-    <PaperProvider theme={theme}>
-      <AuthProvider>
-        <NavigationContainer>
-          <StatusBar style="light" />
-          <AppNavigator />
-        </NavigationContainer>
-      </AuthProvider>
-    </PaperProvider>
-  );
-}
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
+
+export default App;
