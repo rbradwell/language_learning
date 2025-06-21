@@ -1,7 +1,9 @@
 // src/components/MainScreen.js
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import TrailProgressScreen from './TrailProgressScreen';
+import CategoryOverviewScreen from './CategoryOverviewScreen';  // New primary screen
+import TrailStepsScreen from './TrailStepsScreen';              // New stepping stones screen
+import TrailProgressScreen from './TrailProgressScreen';        // Keep as legacy/backup
 import AuthService from '../services/authService';
 import {
   View,
@@ -23,7 +25,7 @@ const AppHeader = ({ title, onLogout }) => (
   </View>
 );
 
-// Placeholder for TrailStepExercises screen
+// Placeholder for TrailStepExercises screen (you can expand this later)
 const TrailStepExercisesScreen = ({ route, navigation }) => {
   const { trailStep, trail, category } = route.params;
   
@@ -38,11 +40,14 @@ const TrailStepExercisesScreen = ({ route, navigation }) => {
       <Text style={styles.exerciseDetails}>
         {trailStep.exercisesCount} exercises • Passing score: {trailStep.passingScore}%
       </Text>
+      <Text style={styles.exerciseNote}>
+        This is where you'll implement the actual exercises.
+      </Text>
       <TouchableOpacity 
         style={styles.backButton}
         onPress={() => navigation.goBack()}
       >
-        <Text style={styles.backButtonText}>Back to Trail</Text>
+        <Text style={styles.backButtonText}>Back to Trail Steps</Text>
       </TouchableOpacity>
     </View>
   );
@@ -62,19 +67,69 @@ const MainScreen = ({ navigation, onLogout }) => {
 
   return (
     <Stack.Navigator>
+      {/* Primary screen: Category Overview */}
+      <Stack.Screen 
+        name="CategoryOverview" 
+        component={CategoryOverviewScreen}
+        options={{
+          header: () => <AppHeader title="Learning Categories" onLogout={handleLogout} />
+        }}
+      />
+      
+      {/* Trail Steps screen with stepping stones */}
+      <Stack.Screen 
+        name="TrailSteps" 
+        component={TrailStepsScreen}
+        options={{
+          headerTitle: "Trail Steps",
+          headerBackTitle: "Categories",
+          headerStyle: { 
+            backgroundColor: '#007AFF',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 3,
+          },
+          headerTintColor: 'white',
+          headerTitleStyle: { 
+            fontWeight: 'bold',
+            fontSize: 18 
+          },
+          headerBackTitleVisible: false,
+        }}
+      />
+      
+      {/* Individual trail step exercises */}
+      <Stack.Screen 
+        name="TrailStepExercises" 
+        component={TrailStepExercisesScreen}
+        options={({ route }) => ({
+          title: route.params?.trailStep?.name || 'Exercises',
+          headerBackTitle: "Back",
+          headerStyle: { 
+            backgroundColor: '#007AFF',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 3,
+          },
+          headerTintColor: 'white',
+          headerTitleStyle: { 
+            fontWeight: 'bold',
+            fontSize: 18 
+          },
+          headerBackTitleVisible: false,
+        })}
+      />
+      
+      {/* Legacy screen - keep for reference/backup */}
       <Stack.Screen 
         name="TrailProgress" 
         component={TrailProgressScreen}
         options={{
-          header: () => <AppHeader title="Learning Trails" onLogout={handleLogout} />
-        }}
-      />
-      <Stack.Screen 
-        name="TrailStepExercises" 
-        component={TrailStepExercisesScreen}
-        options={{
-          headerTitle: "Exercises",
-          headerBackTitle: "Back"
+          header: () => <AppHeader title="Trail Progress (Legacy)" onLogout={handleLogout} />
         }}
       />
     </Stack.Navigator>
@@ -92,6 +147,11 @@ const styles = StyleSheet.create({
     paddingBottom: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   headerTitle: {
     fontSize: 20,
@@ -102,7 +162,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF3B30',
     paddingHorizontal: 15,
     paddingVertical: 8,
-    borderRadius: 6,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
   logoutButtonText: {
     color: 'white',
@@ -113,33 +178,48 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    padding: 20,
+    backgroundColor: '#f8f9fa',
+    padding: 30,
   },
   exerciseTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#333',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 15,
   },
   exerciseInfo: {
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
     marginBottom: 10,
+    lineHeight: 22,
   },
   exerciseDetails: {
     fontSize: 14,
     color: '#888',
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  exerciseNote: {
+    fontSize: 16,
+    color: '#007AFF',
+    textAlign: 'center',
+    marginBottom: 40,
+    fontStyle: 'italic',
+    lineHeight: 22,
   },
   backButton: {
     backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: 25,
+    paddingVertical: 15,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   backButtonText: {
     color: 'white',

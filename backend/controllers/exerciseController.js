@@ -813,8 +813,161 @@ const getSessionProgress = async (req, res) => {
   }
 };
 
+/**
+ * Get category summary with trail and exercise statistics
+ */
+const getCategorySummary = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Get all categories for user's target language with related data
+    const categories = await Category.findAll({
+      where: {
+        language: req.user.targetLanguage
+      },
+      include: [
+        {
+          model: Trail,
+          required: false,
+          include: [
+            {
+              model: TrailStep,
+              required: false,
+              include: [
+                {
+                  model: Exercise,
+                  required: false,
+                  include: [
+                    {
+                      model: ExerciseSession,
+                      as: 'session',
+                      where: { userId },
+                      required: false,
+                      attributes: ['id', 'status', 'score', 'completedAt', 'totalQuestions']
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      order: [['difficulty', 'ASC'], ['name', 'ASC']]
+    });
+
+    // Get user progress for calculating completed trails
+    const userProgress = await UserProgress.findAll({
+      where: { 
+        userId,
+        completed: true 
+      },
+      include: [
+        {
+          model: TrailStep,
+          as: 'trailStep',
+          include: [
+            {
+              model: Trail,
+              include: [
+                {
+                  model: Category,
+                  where: { language: req.user.targetLanguage }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    });
+
+    // Create a map of completed steps by trail
+    const completedStepsByTrail = userProgress.reduce((acc, progress) => {
+      const trailId = progress.trailStep.Trail.id;
+      if (!acc[trailId]) acc[trailId] = 0;
+      acc[trailId]++;
+      return acc;
+    }, {});
+
+    // Calculate summary for each category
+    const result = categories.map(category => {
+      let totalTrails = 0;
+      let completedTrails = 0;
+      let totalExercises = 0;
+      let passedExercises = 0;
+      let failedExercises = 0;
+
+      if (category.Trails) {
+        totalTrails = category.Trails.length;
+
+        category.Trails.forEach(trail => {
+          const trailStepsCount = trail.TrailSteps ? trail.TrailSteps.length : 0;
+          const completedStepsCount = completedStepsByTrail[trail.id] || 0;
+          
+          // A trail is considered completed if all its steps are completed
+          if (trailStepsCount > 0 && completedStepsCount >= trailStepsCount) {
+            completedTrails++;
+          }
+
+          // Count exercises
+          if (trail.TrailSteps) {
+            trail.TrailSteps.forEach(step => {
+              if (step.Exercises) {
+                step.Exercises.forEach(exercise => {
+                  totalExercises++;
+                  
+                  if (exercise.session) {
+                    const session = exercise.session;
+                    if (session.status === 'completed') {
+                      // Calculate percentage score: (session.score / totalQuestions) * 100
+                      const totalQuestions = session.totalQuestions || 1;
+                      const percentageScore = Math.round((session.score / totalQuestions) * 100);
+                      
+                      if (percentageScore >= step.passingScore) {
+                        passedExercises++;
+                      } else {
+                        failedExercises++;
+                      }
+                    }
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+
+      return {
+        id: category.id,
+        name: category.name,
+        description: category.description,
+        language: category.language,
+        difficulty: category.difficulty,
+        trailsCount: totalTrails,
+        completedTrails,
+        totalExercises,
+        passedExercises,
+        failedExercises
+      };
+    });
+
+    res.json({
+      success: true,
+      data: result
+    });
+
+  } catch (error) {
+    console.error('Error fetching category summary:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch category summary',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getTrailStepsProgress,
+  getCategorySummary,    // Add this new function
   createExerciseSession,
   submitAnswer,
   getExercisesByTrailStep,
