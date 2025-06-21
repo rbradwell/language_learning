@@ -41,7 +41,13 @@ app.use(limiter);
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:19006',    // Expo web
+    'exp://localhost:19000',     // Expo mobile
+    'http://172.20.10.2:19000', // Your IP + Expo port
+    'http://172.20.10.2:8081'   // Alternative Expo port
+  ],
   credentials: true, // Allow cookies to be sent
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
