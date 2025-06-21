@@ -4,7 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import CategoryOverviewScreen from './CategoryOverviewScreen';  // New primary screen
 import TrailStepsScreen from './TrailStepsScreen';              // New stepping stones screen
 import TrailProgressScreen from './TrailProgressScreen';        // Keep as legacy/backup
-import AuthService from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 import {
   View,
   Text,
@@ -53,13 +53,13 @@ const TrailStepExercisesScreen = ({ route, navigation }) => {
   );
 };
 
-const MainScreen = ({ navigation, onLogout }) => {
+const MainScreen = ({ navigation }) => {
+  const { logout } = useAuth();
+
   const handleLogout = async () => {
     try {
-      await AuthService.logout();
-      Alert.alert('Success', 'Logged out successfully', [
-        { text: 'OK', onPress: () => onLogout() }
-      ]);
+      await logout();
+      Alert.alert('Success', 'Logged out successfully');
     } catch (error) {
       Alert.alert('Error', 'Logout failed');
     }

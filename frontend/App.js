@@ -1,46 +1,42 @@
 // App.js
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
-import AuthService from './src/services/authService';
+import { ActivityIndicator, View, StyleSheet, Alert } from 'react-native';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import LoginScreen from './src/components/LoginScreen';
 import RegisterScreen from './src/components/RegisterScreen';
 import MainScreen from './src/components/MainScreen';
 
 const Stack = createStackNavigator();
 
-const App = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const navigationRef = useRef();
+// App content that uses auth context
+const AppContent = () => {
+  const { isAuthenticated, loading, error, logout } = useAuth();
 
-  useEffect(() => {
-    checkAuthStatus();
-  }, []);
-
-  const checkAuthStatus = async () => {
-    try {
-      const authenticated = await AuthService.isAuthenticated();
-      setIsAuthenticated(authenticated);
-    } catch (error) {
-      console.error('Auth check error:', error);
-      setIsAuthenticated(false);
-    } finally {
-      setIsLoading(false);
+  // Show error alert if there's an authentication error
+  React.useEffect(() => {
+    if (error) {
+      Alert.alert(
+        'Authentication Error',
+        error,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // If it's a session expired error, logout
+              if (error.includes('Session expired') || error.includes('expired')) {
+                logout();
+              }
+            }
+          }
+        ]
+      );
     }
-  };
+  }, [error, logout]);
 
-  // Function to handle auth state changes
-  const handleAuthSuccess = () => {
-    setIsAuthenticated(true);
-  };
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-  };
-
-  if (isLoading) {
+  // Show loading spinner while checking auth state
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
@@ -49,24 +45,27 @@ const App = () => {
   }
 
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
-          <Stack.Screen name="Main">
-            {(props) => <MainScreen {...props} onLogout={handleLogout} />}
-          </Stack.Screen>
+          <Stack.Screen name="Main" component={MainScreen} />
         ) : (
           <>
-            <Stack.Screen name="Login">
-              {(props) => <LoginScreen {...props} onAuthSuccess={handleAuthSuccess} />}
-            </Stack.Screen>
-            <Stack.Screen name="Register">
-              {(props) => <RegisterScreen {...props} onAuthSuccess={handleAuthSuccess} />}
-            </Stack.Screen>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
           </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
+  );
+};
+
+// Main App component with AuthProvider
+const App = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 };
 
@@ -75,6 +74,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f5f5f5',
   },
 });
 

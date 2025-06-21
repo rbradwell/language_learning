@@ -6,19 +6,19 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import AuthService from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 import { validateLoginForm } from '../utils/validation';
 
-const LoginScreen = ({ navigation, onAuthSuccess }) => {
+const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  const { login, loading } = useAuth();
 
   const handleLogin = async () => {
     // Clear previous messages
@@ -32,27 +32,18 @@ const LoginScreen = ({ navigation, onAuthSuccess }) => {
       return;
     }
 
-    setLoading(true);
-    try {
-      const result = await AuthService.login(email, password);
-      
-      if (result.success) {
-        setSuccessMessage('Login successful! Welcome back.');
-        setTimeout(() => {
-          onAuthSuccess();
-        }, 1000);
+    const result = await login(email, password);
+    
+    if (result.success) {
+      setSuccessMessage('Login successful! Welcome back.');
+      // Navigation will be handled automatically by the auth context
+    } else {
+      // Handle different error messages
+      if (result.message === 'Invalid email or password') {
+        setErrorMessage('No account found with these credentials. Please check your email and password or create a new account.');
       } else {
-        // Handle different error messages
-        if (result.message === 'Invalid email or password') {
-          setErrorMessage('No account found with these credentials. Please check your email and password or create a new account.');
-        } else {
-          setErrorMessage(result.message || 'Login failed. Please try again.');
-        }
+        setErrorMessage(result.message || 'Login failed. Please try again.');
       }
-    } catch (error) {
-      setErrorMessage('Unable to connect to the server. Please check your internet connection and try again.');
-    } finally {
-      setLoading(false);
     }
   };
 
