@@ -1,5 +1,8 @@
 // src/components/MainScreen.js
 import React from 'react';
+import { createStackNavigator } from '@react-navigation/stack';
+import TrailProgressScreen from './TrailProgressScreen';
+import AuthService from '../services/authService';
 import {
   View,
   Text,
@@ -7,7 +10,43 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import AuthService from '../services/authService';
+
+const Stack = createStackNavigator();
+
+// Simple header component with logout
+const AppHeader = ({ title, onLogout }) => (
+  <View style={styles.header}>
+    <Text style={styles.headerTitle}>{title}</Text>
+    <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
+      <Text style={styles.logoutButtonText}>Logout</Text>
+    </TouchableOpacity>
+  </View>
+);
+
+// Placeholder for TrailStepExercises screen
+const TrailStepExercisesScreen = ({ route, navigation }) => {
+  const { trailStep, trail, category } = route.params;
+  
+  return (
+    <View style={styles.exerciseContainer}>
+      <Text style={styles.exerciseTitle}>
+        {trailStep.name}
+      </Text>
+      <Text style={styles.exerciseInfo}>
+        Trail: {trail.name} • Category: {category.name}
+      </Text>
+      <Text style={styles.exerciseDetails}>
+        {trailStep.exercisesCount} exercises • Passing score: {trailStep.passingScore}%
+      </Text>
+      <TouchableOpacity 
+        style={styles.backButton}
+        onPress={() => navigation.goBack()}
+      >
+        <Text style={styles.backButtonText}>Back to Trail</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const MainScreen = ({ navigation, onLogout }) => {
   const handleLogout = async () => {
@@ -22,45 +61,88 @@ const MainScreen = ({ navigation, onLogout }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome to Your App!</Text>
-      <Text style={styles.subtitle}>You are now logged in</Text>
-      
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutButtonText}>Logout</Text>
-      </TouchableOpacity>
-    </View>
+    <Stack.Navigator>
+      <Stack.Screen 
+        name="TrailProgress" 
+        component={TrailProgressScreen}
+        options={{
+          header: () => <AppHeader title="Learning Trails" onLogout={handleLogout} />
+        }}
+      />
+      <Stack.Screen 
+        name="TrailStepExercises" 
+        component={TrailStepExercisesScreen}
+        options={{
+          headerTitle: "Exercises",
+          headerBackTitle: "Back"
+        }}
+      />
+    </Stack.Navigator>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  logoutButton: {
+    backgroundColor: '#FF3B30',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  logoutButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  exerciseContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
     padding: 20,
   },
-  title: {
+  exerciseTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 10,
     color: '#333',
+    textAlign: 'center',
+    marginBottom: 10,
   },
-  subtitle: {
+  exerciseInfo: {
     fontSize: 16,
     color: '#666',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  exerciseDetails: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
     marginBottom: 30,
   },
-  logoutButton: {
-    backgroundColor: '#FF3B30',
-    padding: 15,
+  backButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderRadius: 8,
-    minWidth: 120,
   },
-  logoutButtonText: {
+  backButtonText: {
     color: 'white',
-    textAlign: 'center',
     fontSize: 16,
     fontWeight: '600',
   },
