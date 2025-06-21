@@ -22,6 +22,7 @@ module.exports = (sequelize) => {
     });
   
     Trail.associate = (models) => {
+      // FIX: Explicitly specify the foreign key
       Trail.belongsTo(models.Category, {
         foreignKey: 'categoryId'
       });
@@ -31,5 +32,4 @@ module.exports = (sequelize) => {
     };
   
     return Trail;
-  };
-  
+};

@@ -6,8 +6,10 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
+const userRoutes = require('./routes/userRoutes');
 const authRoutes = require('./routes/authRoutes');
 const exercisesRoutes = require('./routes/exercises');
+const adminRoutes = require('./routes/admin');
 const { sequelize } = require('./models');
 
 const app = express();
@@ -62,8 +64,11 @@ app.get('/health', (req, res) => {
 });
 
 // Routes
+app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/exercises', exercisesRoutes);
+app.use('/api/user', userRoutes);
+
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({

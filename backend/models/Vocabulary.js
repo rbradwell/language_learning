@@ -32,6 +32,11 @@ module.exports = (sequelize) => {
       Vocabulary.belongsTo(models.Category, {
         foreignKey: 'categoryId' 
       });
+      Vocabulary.belongsToMany(models.ExerciseSession, {
+        through: models.ExerciseSessionVocabulary,
+        foreignKey: 'vocabularyId',
+        otherKey: 'sessionId'
+      });
       Vocabulary.hasMany(models.UserAnswer);
     };
   

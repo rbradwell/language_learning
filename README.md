@@ -31,3 +31,5 @@ npx sequelize-cli db:migrate
 
 # 4. Run seeders (populates data)
 npx sequelize-cli db:seed:all
+
+---

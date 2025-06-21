@@ -1,14 +1,16 @@
 {
     "Servers": {
       "Language Learning DB": {
-        "Name": "Language Learning DB",
+        "Name": "1",
         "Group": "Servers",
         "Host": "languagelearningdb",
         "Port": 5432,
         "MaintenanceDB": "languagelearningdb",
         "Username": "postgres",
         "Password": "postgres",
-        "SSLMode": "prefer"
+        "SSLMode": "prefer",
+        "Favorite": true,
+        "Save": true
       }
     }
   }

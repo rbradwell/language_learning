@@ -5,27 +5,43 @@ const { body } = require('express-validator');
 const authMiddleware = require('../middleware/authMiddleware');
 const {
   getExercisesByTrailStep,
-  submitExerciseResults,
+  submitAnswer,
   getUserProgress,
-  getWeakVocabulary
+  getWeakVocabulary,
+  getTrailStepsProgress,    // Get comprehensive progress overview
+  createExerciseSession,    // Start an exercise session
+  getSessionProgress        // Get session-specific progress
 } = require('../controllers/exerciseController');
-const { Op } = require('sequelize');
 
-// Get exercises for a specific trail step
-router.get('/trail-step/:trailStepId', authMiddleware, getExercisesByTrailStep);
+// Get comprehensive trail steps progress for user
+router.get('/trail-steps-progress', authMiddleware, getTrailStepsProgress);
 
-// Submit exercise results
-router.post('/submit', [
+// Create/start an exercise session
+router.post('/start-exercise', [
   authMiddleware,
-  body('trailStepId').isUUID().withMessage('Valid trail step ID required'),
-  body('score').isInt({ min: 0, max: 100 }).withMessage('Score must be between 0 and 100'),
-  body('timeSpent').isInt({ min: 0 }).withMessage('Time spent must be a positive integer'),
-  body('answers').optional().isArray().withMessage('Answers must be an array')
-], submitExerciseResults);
+  body('exerciseId').isUUID().withMessage('Valid exercise ID required')
+], createExerciseSession);
 
-router.get('/trail-step/:trailStepId', authMiddleware, getExercisesByTrailStep);
-router.post('/submit', authMiddleware, submitExerciseResults);
+// Get exercises for a specific trail step (creates/resumes session) - COMMENTED OUT FOR NOW
+// router.get('/trail-step/:trailStepId', authMiddleware, getExercisesByTrailStep);
+
+// Submit individual answer for session-based exercises (MODIFIED - no nextStep)
+router.post('/submit-answer', [
+  authMiddleware,
+  body('sessionId').isUUID().withMessage('Valid session ID required'),
+  body('vocabularyId').isUUID().withMessage('Valid vocabulary ID required'),
+  body('userAnswer').notEmpty().withMessage('User answer is required'),
+  body('timeSpent').optional().isInt({ min: 0 }).withMessage('Time spent must be a positive integer'),
+  body('exerciseDirection').optional().isIn(['target_to_native', 'native_to_target']).withMessage('Exercise direction must be target_to_native or native_to_target')
+], submitAnswer);
+
+// Get user progress (optionally filtered by category)
 router.get('/progress/:categoryId?', authMiddleware, getUserProgress);
+
+// Get session progress - which vocabularies have been tested
+router.get('/session-progress/:sessionId', authMiddleware, getSessionProgress);
+
+// Get vocabulary that user struggles with
 router.get('/weak-vocabulary', authMiddleware, getWeakVocabulary);
 
 module.exports = router;

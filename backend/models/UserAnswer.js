@@ -1,4 +1,4 @@
-// backend/models/UserAnswer.js
+// models/UserAnswer.js
 const { DataTypes } = require('sequelize');
 
 module.exports = (sequelize) => {
@@ -12,13 +12,20 @@ module.exports = (sequelize) => {
       type: DataTypes.UUID,
       allowNull: false
     },
-    vocabularyId: {
-      type: DataTypes.UUID,
-      allowNull: true
-    },
     exerciseId: {
       type: DataTypes.UUID,
-      allowNull: true
+      allowNull: false,
+      comment: 'All answers must reference an exercise'
+    },
+    sessionId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      comment: 'Only vocabulary_matching exercises use sessions'
+    },
+    vocabularyId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      comment: 'Only vocabulary_matching exercises reference vocabulary'
     },
     userAnswer: {
       type: DataTypes.STRING,
@@ -34,7 +41,13 @@ module.exports = (sequelize) => {
     },
     timeSpent: {
       type: DataTypes.INTEGER,
-      defaultValue: 0
+      defaultValue: 0,
+      comment: 'Time spent on this individual answer in seconds'
+    },
+    questionData: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      comment: 'Additional question context for non-vocabulary exercises'
     }
   });
 
@@ -43,13 +56,17 @@ module.exports = (sequelize) => {
       foreignKey: 'userId',
       as: 'user'
     });
-    UserAnswer.belongsTo(models.Vocabulary, {
-      foreignKey: 'vocabularyId',
-      as: 'vocabulary'
-    });
     UserAnswer.belongsTo(models.Exercise, {
       foreignKey: 'exerciseId',
       as: 'exercise'
+    });
+    UserAnswer.belongsTo(models.ExerciseSession, {
+      foreignKey: 'sessionId',
+      as: 'session'
+    });
+    UserAnswer.belongsTo(models.Vocabulary, {
+      foreignKey: 'vocabularyId',
+      as: 'vocabulary'
     });
   };
 

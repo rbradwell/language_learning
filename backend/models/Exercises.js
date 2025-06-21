@@ -1,4 +1,3 @@
-
 // models/Exercise.js
 const { DataTypes } = require('sequelize');
 
@@ -20,7 +19,7 @@ module.exports = (sequelize) => {
     content: {
       type: DataTypes.JSON,
       allowNull: false,
-      comment: 'Stores exercise data as JSON'
+      comment: 'Stores exercise configuration and content as JSON'
     },
     order: {
       type: DataTypes.INTEGER,
@@ -33,6 +32,14 @@ module.exports = (sequelize) => {
     Exercise.belongsTo(models.TrailStep, {
       foreignKey: 'trailStepId',
       as: 'trailStep'
+    });
+    Exercise.hasOne(models.ExerciseSession, {
+      foreignKey: 'exerciseId',
+      as: 'session'
+    });
+    Exercise.hasMany(models.UserAnswer, {
+      foreignKey: 'exerciseId',
+      as: 'answers'
     });
   };
 
