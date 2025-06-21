@@ -2,7 +2,7 @@
 import Constants from 'expo-constants';
 
 // Configure your backend URL
-const API_BASE_URL = 'http://172.20.10.2:8080/api';  // Production
+const API_BASE_URL = 'http://192.168.0.27:8080/api';  // Production
 
 class ApiService {
   constructor() {

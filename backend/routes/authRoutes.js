@@ -1,7 +1,7 @@
 // routes/authRoutes.js
 const express = require('express');
 const { body } = require('express-validator');
-const { register, login, getProfile, refreshToken } = require('../controllers/authController');
+const { register, login, getProfile, refreshToken, logout } = require('../controllers/authController');
 const authMiddleware = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -42,5 +42,6 @@ router.post('/register', registerValidation, register);
 router.post('/login', loginValidation, login);
 router.get('/profile', authMiddleware, getProfile);
 router.post('/refresh', refreshToken);
+router.post('/logout', authMiddleware, logout);
 
 module.exports = router;

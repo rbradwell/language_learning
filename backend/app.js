@@ -19,7 +19,7 @@ app.use(helmet());
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 60 * 60 * 1000, // 1 hour
   max: 100, // limit each IP to 100 requests per windowMs
   message: {
     success: false,
@@ -37,7 +37,7 @@ const authLimiter = rateLimit({
   }
 });
 
-app.use(limiter);
+//app.use(limiter);
 
 // CORS configuration
 app.use(cors({

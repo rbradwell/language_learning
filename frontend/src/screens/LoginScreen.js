@@ -1,44 +1,41 @@
-// src/screens/LoginScreen.js
+// src/screens/LoginScreen.js - Absolutely minimal approach
 import React, { useState } from 'react';
 import {
   View,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Alert,
-} from 'react-native';
-import {
   Text,
   TextInput,
-  Button,
-  Card,
-  Title,
-  Paragraph,
-  ActivityIndicator,
-  Snackbar,
-} from 'react-native-paper';
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
-import { theme } from '../theme/theme';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [snackbarVisible, setSnackbarVisible] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
 
   const { login } = useAuth();
 
+  useFocusEffect(
+    React.useCallback(() => {
+      setEmail('');
+      setPassword('');
+    }, [])
+  );
+
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      showSnackbar('Please fill in all fields');
+      Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
-    if (!isValidEmail(email)) {
-      showSnackbar('Please enter a valid email address');
+    if (!email.includes('@')) {
+      Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
 
@@ -48,24 +45,14 @@ const LoginScreen = ({ navigation }) => {
       const result = await login(email.trim(), password);
       
       if (!result.success) {
-        showSnackbar(result.message || 'Login failed');
+        Alert.alert('Login Failed', result.message || 'Invalid credentials');
       }
-      // If successful, navigation will happen automatically via AuthContext
     } catch (error) {
-      showSnackbar('Network error. Please check your connection.');
+      console.error('Login error:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const showSnackbar = (message) => {
-    setSnackbarMessage(message);
-    setSnackbarVisible(true);
-  };
-
-  const isValidEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
   };
 
   return (
@@ -73,82 +60,63 @@ const LoginScreen = ({ navigation }) => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        keyboardShouldPersistTaps="handled"
-      >
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
-          <Title style={styles.title}>Welcome Back!</Title>
-          <Paragraph style={styles.subtitle}>
+          <Text style={styles.title}>Welcome Back!</Text>
+          <Text style={styles.subtitle}>
             Sign in to continue your language learning journey
-          </Paragraph>
+          </Text>
         </View>
 
-        <Card style={styles.card}>
-          <Card.Content>
+        <View style={styles.form}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email</Text>
             <TextInput
-              label="Email"
               value={email}
               onChangeText={setEmail}
-              mode="outlined"
+              style={styles.input}
+              placeholder="Enter your email"
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
-              style={styles.input}
-              left={<TextInput.Icon icon="email" />}
-              disabled={isLoading}
+              editable={!isLoading}
             />
+          </View>
 
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Password</Text>
             <TextInput
-              label="Password"
               value={password}
               onChangeText={setPassword}
-              mode="outlined"
-              secureTextEntry={!showPassword}
               style={styles.input}
-              left={<TextInput.Icon icon="lock" />}
-              right={
-                <TextInput.Icon
-                  icon={showPassword ? 'eye-off' : 'eye'}
-                  onPress={() => setShowPassword(!showPassword)}
-                />
-              }
-              disabled={isLoading}
+              placeholder="Enter your password"
+              secureTextEntry
+              editable={!isLoading}
+              onSubmitEditing={handleLogin}
             />
+          </View>
 
-            <Button
-              mode="contained"
-              onPress={handleLogin}
-              style={styles.loginButton}
-              disabled={isLoading}
-              loading={isLoading}
-            >
+          <TouchableOpacity
+            style={[styles.button, isLoading && styles.buttonDisabled]}
+            onPress={handleLogin}
+            disabled={isLoading}
+          >
+            <Text style={styles.buttonText}>
               {isLoading ? 'Signing In...' : 'Sign In'}
-            </Button>
+            </Text>
+          </TouchableOpacity>
 
-            <View style={styles.registerSection}>
-              <Text style={styles.registerText}>Don't have an account? </Text>
-              <Button
-                mode="text"
-                onPress={() => navigation.navigate('Register')}
-                disabled={isLoading}
-                compact
-              >
-                Sign Up
-              </Button>
-            </View>
-          </Card.Content>
-        </Card>
+          <View style={styles.registerSection}>
+            <Text style={styles.registerText}>Don't have an account? </Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Register')}
+              disabled={isLoading}
+            >
+              <Text style={styles.linkText}>Sign Up</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </ScrollView>
-
-      <Snackbar
-        visible={snackbarVisible}
-        onDismiss={() => setSnackbarVisible(false)}
-        duration={4000}
-        style={styles.snackbar}
-      >
-        {snackbarMessage}
-      </Snackbar>
     </KeyboardAvoidingView>
   );
 };
@@ -156,7 +124,7 @@ const LoginScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#f5f5f5',
   },
   scrollContainer: {
     flexGrow: 1,
@@ -165,44 +133,74 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 40,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: theme.colors.primary,
+    color: '#333',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: theme.colors.text,
+    color: '#666',
     textAlign: 'center',
-    opacity: 0.7,
   },
-  card: {
-    elevation: 4,
+  form: {
+    backgroundColor: 'white',
+    padding: 20,
     borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 8,
   },
   input: {
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: 'white',
+    color: '#333',
   },
-  loginButton: {
-    marginTop: 8,
-    marginBottom: 16,
-    paddingVertical: 8,
+  button: {
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   registerSection: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 20,
   },
   registerText: {
-    color: theme.colors.text,
-    opacity: 0.7,
+    color: '#666',
   },
-  snackbar: {
-    backgroundColor: theme.colors.error,
+  linkText: {
+    color: '#007AFF',
+    fontWeight: '500',
   },
 });
 
