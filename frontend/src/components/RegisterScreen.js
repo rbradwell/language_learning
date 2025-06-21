@@ -20,11 +20,11 @@ const RegisterScreen = ({ navigation, onAuthSuccess }) => {
     password: '',
     username: '',
     targetLanguage: 'Mandarin',
-    nativeLanguage: 'English',
   });
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -47,7 +47,13 @@ const RegisterScreen = ({ navigation, onAuthSuccess }) => {
 
     setLoading(true);
     try {
-      const result = await AuthService.register(formData);
+      // Always send "English" as nativeLanguage to backend
+      const dataToSend = {
+        ...formData,
+        nativeLanguage: 'English'
+      };
+      
+      const result = await AuthService.register(dataToSend);
       
       if (result.success) {
         setSuccessMessage('Account created successfully! Welcome to the app.');
@@ -111,15 +117,25 @@ const RegisterScreen = ({ navigation, onAuthSuccess }) => {
             autoCorrect={false}
           />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            value={formData.password}
-            onChangeText={(text) => handleInputChange('password', text)}
-            secureTextEntry
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Password"
+              value={formData.password}
+              onChangeText={(text) => handleInputChange('password', text)}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity
+              style={styles.showPasswordButton}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Text style={styles.showPasswordText}>
+                {showPassword ? 'Hide' : 'Show'}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.pickerContainer}>
             <Text style={styles.label}>Target Language:</Text>
@@ -154,14 +170,6 @@ const RegisterScreen = ({ navigation, onAuthSuccess }) => {
               </TouchableOpacity>
             </View>
           </View>
-
-          <TextInput
-            style={styles.input}
-            placeholder="Native Language (optional)"
-            value={formData.nativeLanguage}
-            onChangeText={(text) => handleInputChange('nativeLanguage', text)}
-            autoCapitalize="words"
-          />
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
@@ -225,6 +233,29 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     fontSize: 16,
     backgroundColor: '#fafafa',
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    marginBottom: 15,
+    backgroundColor: '#fafafa',
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 15,
+    fontSize: 16,
+  },
+  showPasswordButton: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+  },
+  showPasswordText: {
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '500',
   },
   button: {
     backgroundColor: '#007AFF',
