@@ -7,7 +7,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ./postgres_data:/var/lib/postgresql/data  # CHANGED: was pgdata:/var/lib/postgresql/data
   pgadmin:
     image: dpage/pgadmin4
     environment:
@@ -21,8 +21,9 @@ services:
       - languagelearningdb
     volumes:
       - ./pgadmin/servers.json:/pgadmin4/servers.json
-      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin_data:/var/lib/pgadmin  # CHANGED: was pgadmin_data:/var/lib/pgadmin
 
-volumes:
-  pgdata:
-  pgadmin_data:
+# REMOVED: The volumes section since we're using local folders now
+# volumes:
+#   pgdata:
+#   pgadmin_data:
