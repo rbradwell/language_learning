@@ -23,6 +23,8 @@ const RegisterScreen = ({ navigation, onAuthSuccess }) => {
     nativeLanguage: 'English',
   });
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -32,10 +34,14 @@ const RegisterScreen = ({ navigation, onAuthSuccess }) => {
   };
 
   const handleRegister = async () => {
+    // Clear previous messages
+    setErrorMessage('');
+    setSuccessMessage('');
+    
     const errors = validateRegisterForm(formData);
     
     if (errors.length > 0) {
-      Alert.alert('Error', errors.join('\n'));
+      setErrorMessage(errors.join('. '));
       return;
     }
 
@@ -44,14 +50,22 @@ const RegisterScreen = ({ navigation, onAuthSuccess }) => {
       const result = await AuthService.register(formData);
       
       if (result.success) {
-        Alert.alert('Success', 'Account created successfully!', [
-          { text: 'OK', onPress: () => onAuthSuccess() }
-        ]);
+        setSuccessMessage('Account created successfully! Welcome to the app.');
+        setTimeout(() => {
+          onAuthSuccess();
+        }, 1000);
       } else {
-        Alert.alert('Error', result.message || 'Registration failed');
+        // Handle different error messages
+        if (result.message === 'User with this email already exists') {
+          setErrorMessage('An account with this email already exists. Please try logging in instead or use a different email.');
+        } else if (result.message === 'Username is already taken') {
+          setErrorMessage('This username is already taken. Please choose a different username.');
+        } else {
+          setErrorMessage(result.message || 'Registration failed. Please try again.');
+        }
       }
     } catch (error) {
-      Alert.alert('Error', error.message);
+      setErrorMessage('Unable to connect to the server. Please check your internet connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -65,6 +79,18 @@ const RegisterScreen = ({ navigation, onAuthSuccess }) => {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.formContainer}>
           <Text style={styles.title}>Create Account</Text>
+
+          {errorMessage ? (
+            <View style={styles.messageContainer}>
+              <Text style={styles.errorMessage}>{errorMessage}</Text>
+            </View>
+          ) : null}
+
+          {successMessage ? (
+            <View style={styles.messageContainer}>
+              <Text style={styles.successMessage}>{successMessage}</Text>
+            </View>
+          ) : null}
 
           <TextInput
             style={styles.input}
@@ -258,6 +284,24 @@ const styles = StyleSheet.create({
   selectedLanguageText: {
     color: 'white',
     fontWeight: '600',
+  },
+  messageContainer: {
+    marginBottom: 15,
+    padding: 12,
+    borderRadius: 8,
+  },
+  errorMessage: {
+    color: '#FF3B30',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  successMessage: {
+    color: '#34C759',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    fontWeight: '500',
   },
 });
 
