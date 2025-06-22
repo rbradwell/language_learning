@@ -33,9 +33,9 @@ module.exports = {
         type: Sequelize.INTEGER,
         defaultValue: 0
       },
-      timeSpent: {
+      completionTime: {
         type: Sequelize.INTEGER,
-        defaultValue: 0
+        allowNull: true
       },
       completed: {
         type: Sequelize.BOOLEAN,

@@ -4,6 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import CategoryOverviewScreen from './CategoryOverviewScreen';  // New primary screen
 import TrailStepsScreen from './TrailStepsScreen';              // New stepping stones screen
 import TrailProgressScreen from './TrailProgressScreen';        // Keep as legacy/backup
+import VocabularyMatchingGame from './VocabularyMatchingGame';  // Vocabulary matching game
 import { useAuth } from '../context/AuthContext';
 import {
   View,
@@ -25,32 +26,11 @@ const AppHeader = ({ title, onLogout }) => (
   </View>
 );
 
-// Placeholder for TrailStepExercises screen (you can expand this later)
+// Trail Step Exercises screen - launches the vocabulary matching game
 const TrailStepExercisesScreen = ({ route, navigation }) => {
-  const { trailStep, trail, category } = route.params;
-  
-  return (
-    <View style={styles.exerciseContainer}>
-      <Text style={styles.exerciseTitle}>
-        {trailStep.name}
-      </Text>
-      <Text style={styles.exerciseInfo}>
-        Trail: {trail.name} • Category: {category.name}
-      </Text>
-      <Text style={styles.exerciseDetails}>
-        {trailStep.exercisesCount} exercises • Passing score: {trailStep.passingScore}%
-      </Text>
-      <Text style={styles.exerciseNote}>
-        This is where you'll implement the actual exercises.
-      </Text>
-      <TouchableOpacity 
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Text style={styles.backButtonText}>Back to Trail Steps</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  console.log('TrailStepExercisesScreen route:', route);
+  console.log('TrailStepExercisesScreen params:', route?.params);
+  return <VocabularyMatchingGame route={route} navigation={navigation} />;
 };
 
 const MainScreen = ({ navigation }) => {

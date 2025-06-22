@@ -35,7 +35,6 @@ router.post('/submit-answer', [
   body('sessionId').isUUID().withMessage('Valid session ID required'),
   body('vocabularyId').isUUID().withMessage('Valid vocabulary ID required'),
   body('userAnswer').notEmpty().withMessage('User answer is required'),
-  body('timeSpent').optional().isInt({ min: 0 }).withMessage('Time spent must be a positive integer'),
   body('exerciseDirection').optional().isIn(['target_to_native', 'native_to_target']).withMessage('Exercise direction must be target_to_native or native_to_target')
 ], submitAnswer);
 
@@ -65,7 +64,6 @@ router.post('/submit-answer', [
   body('sessionId').isUUID().withMessage('Valid session ID required'),
   body('vocabularyId').isUUID().withMessage('Valid vocabulary ID required'),
   body('userAnswer').notEmpty().withMessage('User answer is required'),
-  body('timeSpent').optional().isInt({ min: 0 }).withMessage('Time spent must be a positive integer'),
   body('exerciseDirection').optional().isIn(['target_to_native', 'native_to_target']).withMessage('Exercise direction must be target_to_native or native_to_target')
 ], submitAnswer);
 

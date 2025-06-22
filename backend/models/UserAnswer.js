@@ -39,11 +39,6 @@ module.exports = (sequelize) => {
       type: DataTypes.BOOLEAN,
       allowNull: false
     },
-    timeSpent: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0,
-      comment: 'Time spent on this individual answer in seconds'
-    },
     questionData: {
       type: DataTypes.JSON,
       allowNull: true,

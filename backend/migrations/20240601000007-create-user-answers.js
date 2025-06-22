@@ -52,10 +52,6 @@ module.exports = {
         type: Sequelize.BOOLEAN,
         allowNull: false
       },
-      timeSpent: {
-        type: Sequelize.INTEGER,
-        defaultValue: 0
-      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE

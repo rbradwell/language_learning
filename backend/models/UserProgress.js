@@ -20,9 +20,10 @@ module.exports = (sequelize) => {
       type: DataTypes.INTEGER,
       defaultValue: 0
     },
-    timeSpent: {
+    completionTime: {
       type: DataTypes.INTEGER,
-      defaultValue: 0
+      allowNull: true,
+      comment: 'Time taken to complete the exercise in seconds'
     },
     completed: {
       type: DataTypes.BOOLEAN,

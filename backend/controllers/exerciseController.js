@@ -217,7 +217,7 @@ const createExerciseSession = async (req, res) => {
     }
 
     const userId = req.user.id;
-    const { exerciseId } = req.body;
+    const { exerciseId, isRetry } = req.body;
 
     // Get the exercise and verify it exists
     const exercise = await Exercise.findByPk(exerciseId, {
@@ -237,15 +237,60 @@ const createExerciseSession = async (req, res) => {
       });
     }
 
-    // Check if user already has an active session for this exercise
+    // Check if user already has any session for this exercise (active or completed)
     let existingSession = await ExerciseSession.findOne({
       where: {
         userId,
-        exerciseId,
-        status: 'in_progress',
-        expiresAt: { [Op.gt]: new Date() }
-      }
+        exerciseId
+      },
+      order: [['createdAt', 'DESC']] // Get most recent session
     });
+
+    // If this is a retry of a failed exercise, or if there's a constraint issue, delete any existing sessions
+    if (isRetry || (existingSession && existingSession.status !== 'in_progress')) {
+      console.log('Handling retry or constraint cleanup for exercise:', exerciseId);
+      
+      // First delete any associated ExerciseSessionVocabulary records
+      await sequelize.query(`
+        DELETE FROM "ExerciseSessionVocabularies" 
+        WHERE "sessionId" IN (
+          SELECT id FROM "ExerciseSessions" 
+          WHERE "userId" = :userId AND "exerciseId" = :exerciseId
+        )
+      `, {
+        replacements: { userId, exerciseId },
+        type: sequelize.QueryTypes.DELETE
+      });
+      
+      // Then delete any UserAnswers associated with the sessions
+      await sequelize.query(`
+        DELETE FROM "UserAnswers" 
+        WHERE "sessionId" IN (
+          SELECT id FROM "ExerciseSessions" 
+          WHERE "userId" = :userId AND "exerciseId" = :exerciseId
+        )
+      `, {
+        replacements: { userId, exerciseId },
+        type: sequelize.QueryTypes.DELETE
+      });
+      
+      // Finally delete the sessions themselves
+      const deleteResult = await ExerciseSession.destroy({
+        where: {
+          userId,
+          exerciseId
+        }
+      });
+      console.log('Deleted sessions for retry/cleanup:', deleteResult);
+      existingSession = null; // Force creation of new session
+    }
+
+    // Only return existing session if it's still in progress and not expired
+    if (existingSession && existingSession.status === 'in_progress' && new Date() <= existingSession.expiresAt) {
+      // Continue with existing session logic
+    } else {
+      existingSession = null; // Force creation of new session
+    }
 
     // If there's an existing session, we need to get the vocabulary data for it too
     if (existingSession) {
@@ -316,12 +361,22 @@ const createExerciseSession = async (req, res) => {
       }
 
       // Create the session
+      console.log('Creating session with data:', {
+        userId,
+        exerciseId,
+        trailStepId: exercise.trailStepId,
+        totalQuestions,
+        isRetry
+      });
+      
       session = await ExerciseSession.create({
         userId,
         exerciseId,
         trailStepId: exercise.trailStepId,
         totalQuestions
       });
+      
+      console.log('Session created successfully:', session.id);
 
       // Associate vocabulary with session
       if (vocabularyIds.length > 0) {
@@ -369,10 +424,16 @@ const createExerciseSession = async (req, res) => {
 
   } catch (error) {
     console.error('Error creating exercise session:', error);
+    console.error('Error details:', error.name, error.message);
+    if (error.errors) {
+      console.error('Validation errors:', error.errors);
+    }
     res.status(500).json({
       success: false,
       message: 'Failed to create exercise session',
-      error: error.message
+      error: error.message,
+      errorName: error.name,
+      validationErrors: error.errors
     });
   }
 };
@@ -392,7 +453,7 @@ const submitAnswer = async (req, res) => {
     }
 
     const userId = req.user.id;
-    const { sessionId, vocabularyId, userAnswer, timeSpent = 0, exerciseDirection } = req.body;
+    const { sessionId, vocabularyId, userAnswer, exerciseDirection } = req.body;
 
     // Get session and verify ownership
     const session = await ExerciseSession.findOne({
@@ -464,17 +525,60 @@ const submitAnswer = async (req, res) => {
     const userAnswerNormalized = userAnswer.toLowerCase().trim();
     const isCorrect = userAnswerNormalized === correctAnswer;
 
-    // Save the answer
-    await UserAnswer.create({
+    // Save the answer with better error handling
+    console.log('Attempting to save UserAnswer with data:', {
       userId,
       exerciseId: session.exerciseId,
       sessionId,
       vocabularyId,
       userAnswer: userAnswer.trim(),
       correctAnswer: direction === 'target_to_native' ? vocabulary.nativeWord : vocabulary.targetWord,
-      isCorrect,
-      timeSpent
+      isCorrect
     });
+    
+    try {
+      const savedAnswer = await UserAnswer.create({
+        userId,
+        exerciseId: session.exerciseId,
+        sessionId,
+        vocabularyId,
+        userAnswer: userAnswer.trim(),
+        correctAnswer: direction === 'target_to_native' ? vocabulary.nativeWord : vocabulary.targetWord,
+        isCorrect
+      });
+      console.log('Answer saved successfully:', savedAnswer.id);
+    } catch (answerError) {
+      console.error('=== ANSWER SAVE ERROR ===');
+      console.error('Error saving answer:', answerError);
+      console.error('Answer error details:', answerError.message);
+      console.error('Answer error name:', answerError.name);
+      console.error('Answer error code:', answerError.code);
+      console.error('Answer error constraint:', answerError.constraint);
+      if (answerError.errors) {
+        console.error('Answer validation errors:', answerError.errors.map(e => ({ field: e.path, message: e.message, value: e.value, type: e.type })));
+      }
+      if (answerError.sql) {
+        console.error('SQL that failed:', answerError.sql);
+      }
+      console.error('=== END ANSWER SAVE ERROR ===');
+      
+      // If it's a constraint violation, the session might be corrupted
+      if (answerError.name === 'SequelizeUniqueConstraintError' || 
+          answerError.name === 'SequelizeForeignKeyConstraintError' ||
+          answerError.message.includes('constraint') ||
+          answerError.message.includes('violates')) {
+        console.error('Database constraint error detected - session may be corrupted');
+        return res.status(500).json({
+          success: false,
+          message: 'Database constraint error - please restart the exercise',
+          error: 'CONSTRAINT_ERROR',
+          shouldRestart: true
+        });
+      }
+      
+      // For other errors, continue but log them
+      console.log('Non-constraint error - continuing...');
+    }
 
     // Update session score
     if (isCorrect) {
@@ -483,13 +587,29 @@ const submitAnswer = async (req, res) => {
       await session.reload();
     }
 
-    // Check if all questions are answered
-    const totalAnswers = await UserAnswer.count({
-      where: { sessionId }
-    });
+    // Check if all questions are answered correctly
+    // For vocabulary matching, we need one correct answer per unique vocabulary item
+    let uniqueCorrectVocabulary = 0;
+    try {
+      // Count distinct vocabulary IDs that have been answered correctly
+      const result = await UserAnswer.findAll({
+        where: { 
+          sessionId,
+          isCorrect: true
+        },
+        attributes: [[sequelize.fn('COUNT', sequelize.fn('DISTINCT', sequelize.col('vocabularyId'))), 'uniqueCount']],
+        raw: true
+      });
+      uniqueCorrectVocabulary = parseInt(result[0]?.uniqueCount || 0);
+      console.log('Unique correct vocabulary count:', uniqueCorrectVocabulary, 'Total needed:', session.totalQuestions);
+    } catch (countError) {
+      console.error('Error counting unique correct vocabulary:', countError);
+      // If we can't count, assume session is not complete
+      uniqueCorrectVocabulary = 0;
+    }
 
     let sessionComplete = false;
-    if (totalAnswers >= session.totalQuestions) {
+    if (uniqueCorrectVocabulary >= session.totalQuestions) {
       // Complete the session
       await session.update({
         status: 'completed',
@@ -501,14 +621,33 @@ const submitAnswer = async (req, res) => {
       const finalScore = Math.round((session.score / session.totalQuestions) * 100);
       const passed = finalScore >= session.trailStep.passingScore;
 
-      await UserProgress.upsert({
-        userId,
-        trailStepId: session.trailStepId,
-        score: finalScore,
-        timeSpent: timeSpent,
-        completed: passed,
-        attempts: 1
+      // Check if user progress already exists
+      const existingProgress = await UserProgress.findOne({
+        where: {
+          userId,
+          trailStepId: session.trailStepId
+        }
       });
+
+      if (existingProgress) {
+        // Update existing progress
+        await existingProgress.update({
+          score: finalScore,
+          completed: passed,
+          attempts: existingProgress.attempts + 1
+        });
+        console.log('Updated existing user progress:', existingProgress.id);
+      } else {
+        // Create new progress record
+        const newProgress = await UserProgress.create({
+          userId,
+          trailStepId: session.trailStepId,
+          score: finalScore,
+          completed: passed,
+          attempts: 1
+        });
+        console.log('Created new user progress:', newProgress.id);
+      }
     }
 
     res.json({
@@ -525,10 +664,17 @@ const submitAnswer = async (req, res) => {
 
   } catch (error) {
     console.error('Error submitting answer:', error);
+    console.error('Error name:', error.name);
+    console.error('Error details:', error.message);
+    if (error.errors) {
+      console.error('Validation errors:', error.errors);
+    }
     res.status(500).json({
       success: false,
       message: 'Failed to submit answer',
-      error: error.message
+      error: error.message,
+      errorName: error.name,
+      validationErrors: error.errors
     });
   }
 };
@@ -758,7 +904,6 @@ const getSessionProgress = async (req, res) => {
           userAnswer: answer.userAnswer,
           correctAnswer: answer.correctAnswer,
           isCorrect: answer.isCorrect,
-          timeSpent: answer.timeSpent,
           submittedAt: answer.createdAt
         });
       } else {

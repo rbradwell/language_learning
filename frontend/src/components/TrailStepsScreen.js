@@ -95,6 +95,12 @@ const TrailStepsScreen = ({ route, navigation }) => {
         return;
       }
 
+      console.log('Navigating with params:', {
+        trailStep: trailStep,
+        trail: trail,
+        category: category
+      });
+
       // Navigate to exercises for this trail step
       navigation.navigate('TrailStepExercises', {
         trailStep: trailStep,

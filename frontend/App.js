@@ -18,7 +18,12 @@ const AppContent = () => {
   React.useEffect(() => {
     if (error) {
       // Only show popup for actual login failures, not automatic token refresh failures
-      if (!error.includes('Token refresh') && !error.includes('attempting refresh')) {
+      if (!error.includes('Token refresh') && 
+          !error.includes('attempting refresh') && 
+          !error.includes('Token expired') &&
+          !error.includes('Token has expired') &&
+          !error.includes('expired token') &&
+          !error.includes('Invalid or expired refresh token')) {
         Alert.alert(
           'Authentication Error',
           error,
