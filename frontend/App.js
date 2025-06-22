@@ -17,21 +17,24 @@ const AppContent = () => {
   // Show error alert if there's an authentication error
   React.useEffect(() => {
     if (error) {
-      Alert.alert(
-        'Authentication Error',
-        error,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // If it's a session expired error, logout
-              if (error.includes('Session expired') || error.includes('expired')) {
-                logout();
+      // Only show popup for actual login failures, not automatic token refresh failures
+      if (!error.includes('Token refresh') && !error.includes('attempting refresh')) {
+        Alert.alert(
+          'Authentication Error',
+          error,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // If it's a session expired error, logout
+                if (error.includes('Session expired') || error.includes('expired')) {
+                  logout();
+                }
               }
             }
-          }
-        ]
-      );
+          ]
+        );
+      }
     }
   }, [error, logout]);
 
