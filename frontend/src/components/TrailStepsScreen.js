@@ -13,7 +13,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import AuthService from '../services/authService';
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 const TrailStepsScreen = ({ route, navigation }) => {
   const { category } = route.params;
@@ -60,14 +60,19 @@ const TrailStepsScreen = ({ route, navigation }) => {
     }
   };
 
-  const getStepStonePosition = (stepNumber, totalSteps) => {
+  const getStepStonePosition = (stepNumber, totalSteps, availableHeight) => {
     // Create natural stepping stone positions with varying alignment
-    const baseSpacing = 120;
     const verticalVariation = 20;
     const horizontalVariation = 50;
+    const topMargin = 40; // Start stones away from the top edge
+    const bottomMargin = 80; // Keep stones away from bottom edge
     
-    // Calculate base position
-    const baseY = stepNumber * baseSpacing;
+    // Calculate available space for stones
+    const usableHeight = availableHeight - topMargin - bottomMargin;
+    
+    // Distribute stones evenly in the available height
+    const baseSpacing = totalSteps > 1 ? usableHeight / (totalSteps - 1) : 0;
+    const baseY = topMargin + ((stepNumber - 1) * baseSpacing);
     
     // Add natural variation based on step number
     const horizontalOffset = (stepNumber % 3 === 0) ? -horizontalVariation : 
@@ -81,8 +86,8 @@ const TrailStepsScreen = ({ route, navigation }) => {
     };
   };
 
-  const renderSteppingStone = (trailStep, stepIndex, trail) => {
-    const position = getStepStonePosition(trailStep.stepNumber, trail.trailStepsCount);
+  const renderSteppingStone = (trailStep, stepIndex, trail, riverHeight) => {
+    const position = getStepStonePosition(trailStep.stepNumber, trail.trailStepsCount, riverHeight);
     const isUnlocked = trailStep.isUnlocked;
     const hasExercises = trailStep.exercisesCount > 0;
     
@@ -194,26 +199,64 @@ const TrailStepsScreen = ({ route, navigation }) => {
       );
     }
 
-    // Calculate total height needed for this trail
-    const totalHeight = Math.max(trail.trailStepsCount * 120 + 200, 400);
+    // Calculate progress information
+    const completedSteps = trail.trailSteps.filter(step => {
+      const completedExercises = step.exercises.filter(ex => ex.passed).length;
+      return completedExercises === step.exercises.length && step.exercises.length > 0;
+    }).length;
+    
+    const nextOpenStep = trail.trailSteps.find(step => {
+      const completedExercises = step.exercises.filter(ex => ex.passed).length;
+      return step.isUnlocked && (completedExercises < step.exercises.length || step.exercises.length === 0);
+    });
+
+    // Calculate available height for river background
+    // Account for: header (~100px), trail header (~120px), progress card (~180px), margins and padding
+    const riverHeight = Math.max(screenHeight - 400, 300);
 
     return (
-      <View key={trail.id} style={[styles.trailContainer, { height: totalHeight }]}>
+      <View key={trail.id} style={styles.trailContainer}>
+        {/* Title and Description Card */}
         <View style={styles.trailHeader}>
           <Text style={styles.trailName}>{trail.name}</Text>
-          <Text style={styles.trailInfo}>
-            {trail.trailStepsCount} step{trail.trailStepsCount !== 1 ? 's' : ''}
+          <Text style={styles.categoryDescription}>
+            {categoryData.description || 'Progress through each step to master this category'}
           </Text>
         </View>
         
-        <View style={styles.riverBackground}>
+        {/* Progress Information Card */}
+        <View style={styles.progressCard}>
+          <Text style={styles.progressTitle}>Progress Overview</Text>
+          <View style={styles.progressStats}>
+            <View style={styles.progressStat}>
+              <Text style={styles.progressNumber}>{trail.trailStepsCount}</Text>
+              <Text style={styles.progressLabel}>Total Steps</Text>
+            </View>
+            <View style={styles.progressStat}>
+              <Text style={styles.progressNumber}>{completedSteps}</Text>
+              <Text style={styles.progressLabel}>Completed</Text>
+            </View>
+            <View style={styles.progressStat}>
+              <Text style={styles.progressNumber}>{nextOpenStep ? nextOpenStep.stepNumber : '-'}</Text>
+              <Text style={styles.progressLabel}>Next Step</Text>
+            </View>
+          </View>
+          {nextOpenStep && (
+            <Text style={styles.nextStepName}>
+              Next: {nextOpenStep.name}
+            </Text>
+          )}
+        </View>
+        
+        {/* River Background - fills remaining space */}
+        <View style={[styles.riverBackground, { height: riverHeight }]}>
           {/* Water ripples effect */}
           <View style={[styles.ripple, styles.ripple1]} />
           <View style={[styles.ripple, styles.ripple2]} />
           <View style={[styles.ripple, styles.ripple3]} />
           
           {trail.trailSteps.map((trailStep, stepIndex) => 
-            renderSteppingStone(trailStep, stepIndex, trail)
+            renderSteppingStone(trailStep, stepIndex, trail, riverHeight)
           )}
         </View>
       </View>
@@ -250,12 +293,6 @@ const TrailStepsScreen = ({ route, navigation }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <View style={styles.categoryHeader}>
-          <Text style={styles.categoryDescription}>
-            {categoryData.description || 'Progress through each step to master this category'}
-          </Text>
-        </View>
-
         {categoryData.trails.map(renderTrail)}
         
         <View style={styles.bottomPadding} />
@@ -311,40 +348,77 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  categoryHeader: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    margin: 20,
-    marginBottom: 0,
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
   categoryDescription: {
-    fontSize: 16,
-    color: '#555',
+    fontSize: 14,
+    color: '#666',
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 20,
+    marginTop: 8,
+  },
+  progressCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    marginHorizontal: 20,
+    marginBottom: 15,
+    padding: 15,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  progressTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  progressStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 10,
+  },
+  progressStat: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  progressNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#007AFF',
+    marginBottom: 4,
+  },
+  progressLabel: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
+  nextStepName: {
+    fontSize: 14,
+    color: '#007AFF',
+    textAlign: 'center',
+    fontWeight: '500',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingBottom: 50,
   },
   trailContainer: {
+    flex: 1,
     margin: 20,
     marginTop: 10,
-    position: 'relative',
   },
   trailHeader: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     padding: 15,
     borderRadius: 12,
-    marginBottom: 15,
+    marginBottom: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -362,11 +436,12 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   riverBackground: {
-    position: 'relative',
     flex: 1,
     backgroundColor: 'rgba(64, 164, 223, 0.3)',
     borderRadius: 20,
     overflow: 'hidden',
+    minHeight: 400,
+    position: 'relative',
   },
   ripple: {
     position: 'absolute',
