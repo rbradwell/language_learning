@@ -26,10 +26,13 @@ const AppHeader = ({ title, onLogout }) => (
   </View>
 );
 
-// Trail Step Exercises screen - launches the vocabulary matching game
+// Trail Step Exercises screen - routes to appropriate exercise component based on type
 const TrailStepExercisesScreen = ({ route, navigation }) => {
   console.log('TrailStepExercisesScreen route:', route);
   console.log('TrailStepExercisesScreen params:', route?.params);
+  
+  // For now, only vocabulary_matching is implemented
+  // TODO: Add other exercise types like sentence_completion, fill_in_blanks, etc.
   return <VocabularyMatchingGame route={route} navigation={navigation} />;
 };
 

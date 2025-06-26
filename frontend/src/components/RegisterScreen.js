@@ -11,10 +11,11 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import AuthService from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 import { validateRegisterForm } from '../utils/validation';
 
-const RegisterScreen = ({ navigation, onAuthSuccess }) => {
+const RegisterScreen = ({ navigation }) => {
+  const { register } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -53,13 +54,11 @@ const RegisterScreen = ({ navigation, onAuthSuccess }) => {
         nativeLanguage: 'English'
       };
       
-      const result = await AuthService.register(dataToSend);
+      const result = await register(dataToSend);
       
       if (result.success) {
         setSuccessMessage('Account created successfully! Welcome to the app.');
-        setTimeout(() => {
-          onAuthSuccess();
-        }, 1000);
+        // No need to call onAuthSuccess - AuthContext will handle the authentication state
       } else {
         // Handle different error messages
         if (result.message === 'User with this email already exists') {

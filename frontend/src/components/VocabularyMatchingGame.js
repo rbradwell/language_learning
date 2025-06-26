@@ -241,6 +241,17 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
       console.log('Start exercise response:', data);
       
       if (data.success) {
+        // Check if this is the correct exercise type
+        if (data.exercise.type !== 'vocabulary_matching') {
+          console.error('Wrong exercise type for VocabularyMatchingGame:', data.exercise.type);
+          Alert.alert(
+            'Exercise Type Error',
+            `This exercise type (${data.exercise.type}) is not yet supported. Please try a different exercise.`,
+            [{ text: 'OK', onPress: () => navigation.goBack() }]
+          );
+          return;
+        }
+        
         setExerciseSession(data.session);
         setVocabularyData(data.exercise.content.vocabulary);
         setTotalQuestions(data.session.totalQuestions);
