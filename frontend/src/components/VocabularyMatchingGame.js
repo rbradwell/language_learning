@@ -30,6 +30,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
   const [nextExercise, setNextExercise] = useState(null);
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [updatedStepData, setUpdatedStepData] = useState(null);
   
   // Animation refs
   const feedbackScale = useRef(new Animated.Value(0)).current;
@@ -194,8 +195,8 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
       console.log('startExercise called, currentExercise:', currentExercise);
       console.log('exerciseRef.current:', exerciseRef.current);
       
-      // Use ref as fallback if state is cleared
-      const exercise = currentExercise || exerciseRef.current;
+      // Use ref as primary source to avoid state timing issues
+      const exercise = exerciseRef.current || currentExercise;
       
       if (!exercise) {
         console.error('No current exercise available');
@@ -214,9 +215,12 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
       
       const requestBody = {
         exerciseId: exercise.id,
-        isRetry: exercise.exerciseStatus === 'completed' && !exercise.passed
+        isRetry: exercise.exerciseStatus === 'completed'
       };
       console.log('Request body:', requestBody);
+      console.log('Exercise object:', exercise);
+      console.log('Exercise status:', exercise.exerciseStatus);
+      console.log('Exercise passed:', exercise.passed);
       
       // Update state with the exercise we're using
       if (!currentExercise) {
@@ -270,35 +274,52 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
     const currentVocab = vocabulary[questionIndex];
     const correctAnswer = currentVocab.targetWord;
     
-    // Get all other target words (excluding the current one)
-    const otherTargetWords = vocabulary
+    // Get all other vocabulary items (excluding the current one) with their target words and pronunciations
+    const otherVocabItems = vocabulary
       .filter((_, index) => index !== questionIndex)
-      .map(v => v.targetWord)
-      .filter(word => word !== correctAnswer); // Ensure no duplicates
+      .filter(v => v.targetWord !== correctAnswer); // Ensure no duplicates
     
     // Randomly select 4 distractors
-    const shuffledDistractors = [...otherTargetWords].sort(() => Math.random() - 0.5);
-    const distractors = shuffledDistractors.slice(0, 4);
+    const shuffledDistractors = [...otherVocabItems].sort(() => Math.random() - 0.5);
+    const distractorItems = shuffledDistractors.slice(0, 4);
     
     // Ensure we have exactly 4 distractors (pad with placeholder if needed)
-    while (distractors.length < 4) {
-      distractors.push(`Option ${distractors.length + 1}`);
+    while (distractorItems.length < 4) {
+      distractorItems.push({ 
+        targetWord: `Option ${distractorItems.length + 1}`, 
+        pronunciation: '' 
+      });
     }
     
-    // Create options array: correct answer + 4 distractors, then shuffle
-    const options = [correctAnswer, ...distractors].sort(() => Math.random() - 0.5);
+    // Create options array with pronunciation: correct answer + 4 distractors, then shuffle
+    const allOptions = [currentVocab, ...distractorItems];
+    const shuffledOptions = allOptions.sort(() => Math.random() - 0.5);
+    
+    // Format options with pronunciation for display
+    const optionsWithPronunciation = shuffledOptions.map(vocabItem => {
+      const targetWord = vocabItem.targetWord;
+      const pronunciation = vocabItem.pronunciation;
+      
+      // Add pronunciation in brackets for Mandarin characters
+      return pronunciation ? `${targetWord} (${pronunciation})` : targetWord;
+    });
+    
+    // Keep original target words for answer checking
+    const originalOptions = shuffledOptions.map(vocabItem => vocabItem.targetWord);
     
     console.log('Generated question:');
     console.log('Native word:', currentVocab.nativeWord);
     console.log('Correct answer:', correctAnswer);
-    console.log('Options:', options);
-    console.log('Correct answer included?', options.includes(correctAnswer));
+    console.log('Options with pronunciation:', optionsWithPronunciation);
+    console.log('Original options:', originalOptions);
+    console.log('Correct answer included?', originalOptions.includes(correctAnswer));
     
     const question = {
       vocabularyId: currentVocab.id,
       questionWord: currentVocab.nativeWord,
       correctAnswer: correctAnswer,
-      options: options,
+      options: originalOptions, // For answer checking
+      optionsWithPronunciation: optionsWithPronunciation, // For display
       exerciseDirection: 'native_to_target'
     };
     
@@ -494,11 +515,11 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
       console.log('Error updating completion time:', error);
     }
     
-    // Check for next exercise
-    findNextUnattemptedExercise();
+    // Fetch updated progress data and find next exercise
+    await fetchUpdatedProgressData();
   };
 
-  const findNextUnattemptedExercise = async () => {
+  const fetchUpdatedProgressData = async () => {
     try {
       const response = await AuthService.makeAuthenticatedRequest(
         'http://192.168.0.27:8080/api/exercises/trail-steps-progress'
@@ -511,21 +532,60 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
         const stepData = trailData?.trailSteps.find(ts => ts.id === trailStep.id);
         
         if (stepData?.exercises) {
+          // Store updated step data for the completion screen
+          setUpdatedStepData(stepData);
+          
+          // Find next unattempted exercise in current step
           const unattemptedExercise = stepData.exercises.find(ex => 
             (ex.exerciseStatus === 'not_attempted' || (ex.exerciseStatus === 'completed' && !ex.passed)) && 
             ex.id !== currentExercise.id
           );
           setNextExercise(unattemptedExercise);
+          
+          // Check if current step is complete (all exercises passed)
+          const allExercisesPassed = stepData.exercises.every(ex => ex.passed);
+          
+          // If current step is complete, find next step in trail
+          if (allExercisesPassed) {
+            const currentStepNumber = trailStep.stepNumber;
+            const nextStep = trailData?.trailSteps?.find(step => 
+              step.stepNumber === currentStepNumber + 1 && step.isUnlocked
+            );
+            
+            // Store next step data
+            if (nextStep) {
+              setUpdatedStepData({
+                ...stepData,
+                isComplete: true,
+                nextStep: nextStep
+              });
+            } else {
+              setUpdatedStepData({
+                ...stepData,
+                isComplete: true,
+                nextStep: null
+              });
+            }
+          }
         }
       }
     } catch (error) {
-      console.error('Error finding next exercise:', error);
+      console.error('Error fetching updated progress data:', error);
     }
+  };
+
+  const findNextUnattemptedExercise = async () => {
+    // This function is now replaced by fetchUpdatedProgressData
+    await fetchUpdatedProgressData();
   };
 
   const startNextExercise = () => {
     if (nextExercise) {
+      console.log('Starting next exercise:', nextExercise);
+      console.log('Next exercise ID:', nextExercise.id);
+      console.log('Next exercise status:', nextExercise.exerciseStatus);
       setCurrentExercise(nextExercise);
+      exerciseRef.current = nextExercise; // Update ref too
       setGameTimer(0);
       setScore(0);
       setCurrentQuestionIndex(0);
@@ -570,16 +630,21 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
 
         {/* Answer Options */}
         <View style={styles.optionsContainer}>
-          {currentQuestion.options.map((option, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.optionButton}
-              onPress={() => submitAnswer(option)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.optionText}>{option}</Text>
-            </TouchableOpacity>
-          ))}
+          {(currentQuestion.optionsWithPronunciation || currentQuestion.options).map((option, index) => {
+            // Extract the original target word from the display text for answer submission
+            const originalOption = currentQuestion.options ? currentQuestion.options[index] : option;
+            
+            return (
+              <TouchableOpacity
+                key={index}
+                style={styles.optionButton}
+                onPress={() => submitAnswer(originalOption)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.optionText}>{option}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* Feedback Animation */}
@@ -609,51 +674,111 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
     );
   };
 
-  const renderCompletion = () => (
-    <View style={styles.completionContainer}>
-      <Text style={styles.congratsTitle}>Congratulations!</Text>
-      <Text style={styles.completionTime}>
-        Time: {formatTime(gameTimer)}
-      </Text>
-      <Text style={styles.completionScore}>
-        Score: {score}/{totalQuestions}
-      </Text>
-      
-      {nextExercise ? (
-        <View style={styles.nextExerciseContainer}>
-          <Text style={styles.nextExerciseText}>
-            Would you like to start the next exercise?
-          </Text>
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.secondaryButton]}
-              onPress={() => navigation.goBack()}
-            >
-              <Text style={styles.secondaryButtonText}>No, Go Back</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.primaryButton]}
-              onPress={startNextExercise}
-            >
-              <Text style={styles.primaryButtonText}>Yes, Continue</Text>
-            </TouchableOpacity>
+  const renderCompletion = () => {
+    // Use updated step data if available, otherwise fall back to route params
+    const currentStepData = updatedStepData || route?.params?.stepData;
+    const totalExercisesInStep = currentStepData?.exercises?.length || 0;
+    const completedExercises = currentStepData?.exercises?.filter(ex => ex.passed).length || 0;
+    const remainingExercises = totalExercisesInStep - completedExercises;
+    const isStepComplete = currentStepData?.isComplete || remainingExercises === 0;
+    const nextStep = currentStepData?.nextStep;
+    
+    return (
+      <View style={styles.completionContainer}>
+        <Text style={styles.congratsTitle}>
+          {isStepComplete ? 'Step Complete!' : 'Congratulations!'}
+        </Text>
+        <Text style={styles.completionTime}>
+          Time: {formatTime(gameTimer)}
+        </Text>
+        <Text style={styles.completionScore}>
+          Score: {score}/{totalQuestions}
+        </Text>
+        
+        {/* Progress Information */}
+        {isStepComplete ? (
+          <View style={styles.stepCompleteInfo}>
+            <Text style={styles.stepCompleteText}>
+              🎉 You've completed all exercises in "{trailStep?.name}"!
+            </Text>
+            {nextStep ? (
+              <Text style={styles.nextStepUnlockedText}>
+                ✨ Next step "{nextStep.name}" is now unlocked!
+              </Text>
+            ) : (
+              <Text style={styles.trailCompleteText}>
+                🏆 You've completed this entire trail!
+              </Text>
+            )}
           </View>
-        </View>
-      ) : (
-        <View style={styles.allCompleteContainer}>
-          <Text style={styles.allCompleteText}>
-            You've completed all exercises in this step!
+        ) : (
+          <Text style={styles.progressInfo}>
+            {remainingExercises > 0 
+              ? `${remainingExercises} exercise${remainingExercises === 1 ? '' : 's'} remaining in ${trailStep?.name}`
+              : `All exercises completed in ${trailStep?.name}!`
+            }
           </Text>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.primaryButton]}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.primaryButtonText}>Back to Steps</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
-  );
+        )}
+        
+        {nextExercise && !isStepComplete ? (
+          <View style={styles.nextExerciseContainer}>
+            <Text style={styles.nextExerciseText}>
+              Would you like to start the next exercise?
+            </Text>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.secondaryButton]}
+                onPress={() => navigation.goBack()}
+              >
+                <Text style={styles.secondaryButtonText}>No, Go Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.primaryButton]}
+                onPress={startNextExercise}
+              >
+                <Text style={styles.primaryButtonText}>Yes, Continue</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.allCompleteContainer}>
+            {isStepComplete && nextStep ? (
+              <View style={styles.buttonRow}>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.secondaryButton]}
+                  onPress={() => navigation.goBack()}
+                >
+                  <Text style={styles.secondaryButtonText}>Back to Category</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.primaryButton]}
+                  onPress={() => {
+                    // Navigate to the next step
+                    navigation.navigate('TrailStepsScreen', {
+                      trail: trail,
+                      category: category,
+                      highlightStepId: nextStep.id
+                    });
+                  }}
+                >
+                  <Text style={styles.primaryButtonText}>Continue to Next Step</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.primaryButton]}
+                onPress={() => navigation.goBack()}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {isStepComplete ? 'Back to Category' : 'Back to Steps'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   // Error state
   if (hasError) {
@@ -859,7 +984,40 @@ const styles = StyleSheet.create({
   completionScore: {
     fontSize: 20,
     color: 'white',
-    marginBottom: 40,
+    marginBottom: 20,
+  },
+  progressInfo: {
+    fontSize: 16,
+    color: 'white',
+    textAlign: 'center',
+    marginBottom: 30,
+    opacity: 0.9,
+  },
+  stepCompleteInfo: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  stepCompleteText: {
+    fontSize: 18,
+    color: 'white',
+    textAlign: 'center',
+    marginBottom: 15,
+    fontWeight: 'bold',
+  },
+  nextStepUnlockedText: {
+    fontSize: 16,
+    color: 'white',
+    textAlign: 'center',
+    marginBottom: 10,
+    opacity: 0.9,
+  },
+  trailCompleteText: {
+    fontSize: 16,
+    color: 'white',
+    textAlign: 'center',
+    marginBottom: 10,
+    opacity: 0.9,
+    fontWeight: 'bold',
   },
   nextExerciseContainer: {
     alignItems: 'center',

@@ -17,3 +17,7 @@ npx sequelize-cli db:migrate:undo:all
 npx sequelize-cli db:migrate
 npx sequelize-cli db:seed:undo:all
 npx sequelize-cli db:seed:all
+
+delete from  public."ExerciseSessions";
+delete from  public."ExerciseSessionVocabularies";
+delete from  public."UserAnswers";

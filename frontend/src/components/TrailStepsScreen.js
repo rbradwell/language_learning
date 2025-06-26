@@ -1,5 +1,5 @@
 // src/components/TrailStepsScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Alert,
   Dimensions,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import AuthService from '../services/authService';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -25,6 +26,13 @@ const TrailStepsScreen = ({ route, navigation }) => {
     });
     fetchTrailSteps();
   }, []);
+
+  // Refresh data when screen comes into focus (user navigates back)
+  useFocusEffect(
+    useCallback(() => {
+      fetchTrailSteps();
+    }, [])
+  );
 
   const fetchTrailSteps = async () => {
     try {

@@ -163,8 +163,20 @@ const getTrailStepsProgress = async (req, res) => {
               exercisesCount: step.Exercises ? step.Exercises.length : 0,
               exercises: step.Exercises ? step.Exercises.map(exercise => {
                 const session = exercise.session;
-                const isPassed = session && session.status === 'completed' && 
-                               session.score >= step.passingScore;
+                
+                // For vocabulary matching exercises, completion means all questions were answered correctly
+                // since users must get each question right to proceed to the next one
+                let isPassed = false;
+                if (session && session.status === 'completed') {
+                  if (exercise.type === 'vocabulary_matching') {
+                    // Vocabulary matching: if completed, user got all questions right
+                    isPassed = true;
+                  } else {
+                    // Other exercise types: use percentage-based passing score
+                    const sessionPercentage = Math.round((session.score / session.totalQuestions) * 100);
+                    isPassed = sessionPercentage >= step.passingScore;
+                  }
+                }
                 
                 return {
                   id: exercise.id,
@@ -246,48 +258,44 @@ const createExerciseSession = async (req, res) => {
       order: [['createdAt', 'DESC']] // Get most recent session
     });
 
-    // If this is a retry of a failed exercise, or if there's a constraint issue, delete any existing sessions
-    if (isRetry || (existingSession && existingSession.status !== 'in_progress')) {
-      console.log('Handling retry or constraint cleanup for exercise:', exerciseId);
+    // Only delete sessions if this is an explicit retry
+    if (isRetry && existingSession) {
+      console.log('Handling explicit retry for exercise:', exerciseId);
       
       // First delete any associated ExerciseSessionVocabulary records
       await sequelize.query(`
         DELETE FROM "ExerciseSessionVocabularies" 
-        WHERE "sessionId" IN (
-          SELECT id FROM "ExerciseSessions" 
-          WHERE "userId" = :userId AND "exerciseId" = :exerciseId
-        )
+        WHERE "sessionId" = :sessionId
       `, {
-        replacements: { userId, exerciseId },
+        replacements: { sessionId: existingSession.id },
         type: sequelize.QueryTypes.DELETE
       });
       
-      // Then delete any UserAnswers associated with the sessions
+      // Then delete any UserAnswers associated with the session
       await sequelize.query(`
         DELETE FROM "UserAnswers" 
-        WHERE "sessionId" IN (
-          SELECT id FROM "ExerciseSessions" 
-          WHERE "userId" = :userId AND "exerciseId" = :exerciseId
-        )
+        WHERE "sessionId" = :sessionId
       `, {
-        replacements: { userId, exerciseId },
+        replacements: { sessionId: existingSession.id },
         type: sequelize.QueryTypes.DELETE
       });
       
-      // Finally delete the sessions themselves
-      const deleteResult = await ExerciseSession.destroy({
-        where: {
-          userId,
-          exerciseId
-        }
-      });
-      console.log('Deleted sessions for retry/cleanup:', deleteResult);
+      // Finally delete the session itself
+      await existingSession.destroy();
+      console.log('Deleted session for explicit retry:', existingSession.id);
       existingSession = null; // Force creation of new session
     }
 
-    // Only return existing session if it's still in progress and not expired
+    // Return existing session if it's still in progress and not expired
     if (existingSession && existingSession.status === 'in_progress' && new Date() <= existingSession.expiresAt) {
       // Continue with existing session logic
+    } else if (existingSession && existingSession.status === 'completed') {
+      // Don't allow starting a completed exercise unless it's an explicit retry
+      return res.status(400).json({
+        success: false,
+        message: 'Exercise already completed',
+        alreadyCompleted: true
+      });
     } else {
       existingSession = null; // Force creation of new session
     }
@@ -619,7 +627,56 @@ const submitAnswer = async (req, res) => {
 
       // Update or create user progress
       const finalScore = Math.round((session.score / session.totalQuestions) * 100);
-      const passed = finalScore >= session.trailStep.passingScore;
+
+      // Check if ALL exercises in this trail step have been completed
+      // Get all exercises in this trail step
+      const allExercisesInStep = await Exercise.findAll({
+        where: { trailStepId: session.trailStepId }
+      });
+
+      // Get all completed sessions for this user in this trail step
+      const completedSessions = await ExerciseSession.findAll({
+        where: {
+          userId,
+          trailStepId: session.trailStepId,
+          status: 'completed'
+        },
+        include: [{
+          model: Exercise,
+          as: 'exercise'
+        }]
+      });
+
+      // Get the trail step to access passingScore
+      const trailStep = await TrailStep.findByPk(session.trailStepId);
+      const passingScore = trailStep.passingScore;
+
+      // Check if all exercises have passing scores
+      const exercisesWithPassingScores = completedSessions.filter(sessionRecord => {
+        if (sessionRecord.exercise.type === 'vocabulary_matching') {
+          // Vocabulary matching: if session is completed, it's automatically passed
+          return true;
+        } else {
+          // Other exercise types: use percentage-based passing score
+          const sessionScore = Math.round((sessionRecord.score / sessionRecord.totalQuestions) * 100);
+          return sessionScore >= passingScore;
+        }
+      });
+
+      // Trail step is complete only if all exercises have been passed
+      const allExercisesCompleted = exercisesWithPassingScores.length >= allExercisesInStep.length;
+      
+      console.log('Trail step completion check:');
+      console.log('  Total exercises in step:', allExercisesInStep.length);
+      console.log('  Exercises with passing scores:', exercisesWithPassingScores.length);
+      console.log('  All exercises completed:', allExercisesCompleted);
+
+      // Calculate average score across all completed exercises
+      const averageScore = exercisesWithPassingScores.length > 0 
+        ? Math.round(exercisesWithPassingScores.reduce((sum, session) => {
+            return sum + Math.round((session.score / session.totalQuestions) * 100);
+          }, 0) / exercisesWithPassingScores.length)
+        : finalScore;
 
       // Check if user progress already exists
       const existingProgress = await UserProgress.findOne({
@@ -632,8 +689,8 @@ const submitAnswer = async (req, res) => {
       if (existingProgress) {
         // Update existing progress
         await existingProgress.update({
-          score: finalScore,
-          completed: passed,
+          score: averageScore,
+          completed: allExercisesCompleted,
           attempts: existingProgress.attempts + 1
         });
         console.log('Updated existing user progress:', existingProgress.id);
@@ -642,8 +699,8 @@ const submitAnswer = async (req, res) => {
         const newProgress = await UserProgress.create({
           userId,
           trailStepId: session.trailStepId,
-          score: finalScore,
-          completed: passed,
+          score: averageScore,
+          completed: allExercisesCompleted,
           attempts: 1
         });
         console.log('Created new user progress:', newProgress.id);

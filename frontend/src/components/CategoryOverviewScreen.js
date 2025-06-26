@@ -1,5 +1,5 @@
 // src/components/CategoryOverviewScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Svg, Circle, Path, Polygon, Rect } from 'react-native-svg';
+import { useFocusEffect } from '@react-navigation/native';
 import AuthService from '../services/authService';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -34,6 +35,13 @@ const CategoryOverviewScreen = ({ navigation }) => {
   useEffect(() => {
     fetchCategorySummary();
   }, []);
+
+  // Refresh data when screen comes into focus (user navigates back)
+  useFocusEffect(
+    useCallback(() => {
+      fetchCategorySummary();
+    }, [])
+  );
 
   const fetchCategorySummary = async () => {
     try {
