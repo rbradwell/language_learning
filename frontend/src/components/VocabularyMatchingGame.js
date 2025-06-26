@@ -31,6 +31,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(false);
   const [updatedStepData, setUpdatedStepData] = useState(null);
+  const [fetchingProgressData, setFetchingProgressData] = useState(false);
   
   // Animation refs
   const feedbackScale = useRef(new Animated.Value(0)).current;
@@ -525,7 +526,9 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
     }
     
     // Fetch updated progress data and find next exercise
+    setFetchingProgressData(true);
     await fetchUpdatedProgressData();
+    setFetchingProgressData(false);
   };
 
   const fetchUpdatedProgressData = async () => {
@@ -751,7 +754,12 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
           </View>
         ) : (
           <View style={styles.allCompleteContainer}>
-            {isStepComplete && nextStep ? (
+            {fetchingProgressData ? (
+              <View style={styles.loadingProgressContainer}>
+                <ActivityIndicator size="large" color="white" />
+                <Text style={styles.loadingProgressText}>Updating progress...</Text>
+              </View>
+            ) : isStepComplete && nextStep ? (
               <View style={styles.buttonRow}>
                 <TouchableOpacity
                   style={[styles.actionButton, styles.secondaryButton]}
@@ -935,27 +943,26 @@ const styles = StyleSheet.create({
   },
   feedbackContainer: {
     position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -75 }, { translateY: -75 }],
-    width: 150,
-    height: 150,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 75,
+    zIndex: 1000,
   },
   correctFeedback: {
     backgroundColor: '#4CAF50',
-    width: '100%',
-    height: '100%',
+    width: 150,
+    height: 150,
     borderRadius: 75,
     justifyContent: 'center',
     alignItems: 'center',
   },
   incorrectFeedback: {
     backgroundColor: '#F44336',
-    width: '100%',
-    height: '100%',
+    width: 150,
+    height: 150,
     borderRadius: 75,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1079,6 +1086,17 @@ const styles = StyleSheet.create({
     color: 'white',
     textAlign: 'center',
     marginBottom: 30,
+  },
+  loadingProgressContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  loadingProgressText: {
+    fontSize: 16,
+    color: 'white',
+    textAlign: 'center',
+    marginTop: 15,
+    opacity: 0.9,
   },
   errorContainer: {
     flex: 1,
