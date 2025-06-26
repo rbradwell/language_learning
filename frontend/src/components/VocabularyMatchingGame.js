@@ -147,11 +147,9 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
             exerciseRef.current = unattemptedExercise; // Store in ref as backup
             startCountdown();
           } else {
-            Alert.alert(
-              'All Complete!', 
-              'You have completed all exercises in this step.',
-              [{ text: 'OK', onPress: () => navigation.goBack() }]
-            );
+            // All exercises completed - this will be handled by the completion screen
+            console.log('All exercises in step completed');
+            navigation.goBack();
           }
         } else {
           console.log('No exercises found in step data');
@@ -748,7 +746,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
                   style={[styles.actionButton, styles.secondaryButton]}
                   onPress={() => navigation.goBack()}
                 >
-                  <Text style={styles.secondaryButtonText}>Back to Category</Text>
+                  <Text style={styles.secondaryButtonText}>Back</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.actionButton, styles.primaryButton]}
@@ -761,7 +759,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
                     });
                   }}
                 >
-                  <Text style={styles.primaryButtonText}>Continue to Next Step</Text>
+                  <Text style={styles.primaryButtonText}>Next Step</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -1030,13 +1028,17 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: 15,
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 20,
+    gap: 10,
   },
   actionButton: {
-    paddingHorizontal: 25,
+    flex: 1,
+    paddingHorizontal: 15,
     paddingVertical: 15,
     borderRadius: 12,
-    minWidth: 120,
+    maxWidth: 150,
   },
   primaryButton: {
     backgroundColor: 'white',
