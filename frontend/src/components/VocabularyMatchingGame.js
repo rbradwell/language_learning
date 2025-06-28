@@ -104,9 +104,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
       setLoading(true);
       
       // Find the next unattempted exercise in this trail step
-      const response = await AuthService.makeAuthenticatedRequest(
-        'http://192.168.0.27:8080/api/exercises/trail-steps-progress'
-      );
+      const response = await AuthService.authenticatedFetch('/exercises/trail-steps-progress');
 
       const data = await response.json();
       console.log('API Response:', data);
@@ -227,16 +225,13 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
       }
       
       // Start exercise session
-      const response = await AuthService.makeAuthenticatedRequest(
-        'http://192.168.0.27:8080/api/exercises/start-exercise',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody)
-        }
-      );
+      const response = await AuthService.authenticatedFetch('/exercises/start-exercise', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
 
       const data = await response.json();
       console.log('Start exercise response:', data);
@@ -347,21 +342,18 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
         exerciseDirection: currentQuestion.exerciseDirection
       });
       
-      const response = await AuthService.makeAuthenticatedRequest(
-        'http://192.168.0.27:8080/api/exercises/submit-answer',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sessionId: exerciseSession.id,
-            vocabularyId: currentQuestion.vocabularyId,
-            userAnswer: selectedAnswer,
-            exerciseDirection: currentQuestion.exerciseDirection
-          })
-        }
-      );
+      const response = await AuthService.authenticatedFetch('/exercises/submit-answer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: exerciseSession.id,
+          vocabularyId: currentQuestion.vocabularyId,
+          userAnswer: selectedAnswer,
+          exerciseDirection: currentQuestion.exerciseDirection
+        })
+      });
 
       const data = await response.json();
       console.log('Submit answer response:', data);
@@ -508,19 +500,16 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
     
     // Update completion time in backend
     try {
-      await AuthService.makeAuthenticatedRequest(
-        'http://192.168.0.27:8080/api/exercises/complete-exercise',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sessionId: exerciseSession.id,
-            completionTime: exerciseTime
-          })
-        }
-      );
+      await AuthService.authenticatedFetch('/exercises/complete-exercise', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: exerciseSession.id,
+          completionTime: exerciseTime
+        })
+      });
     } catch (error) {
       console.log('Error updating completion time:', error);
     }
@@ -533,9 +522,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
 
   const fetchUpdatedProgressData = async () => {
     try {
-      const response = await AuthService.makeAuthenticatedRequest(
-        'http://192.168.0.27:8080/api/exercises/trail-steps-progress'
-      );
+      const response = await AuthService.authenticatedFetch('/exercises/trail-steps-progress');
 
       const data = await response.json();
       if (data.success) {

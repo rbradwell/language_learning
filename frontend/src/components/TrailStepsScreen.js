@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import AuthService from '../services/authService';
+import LilyPad from './svg/TrailIcons/LilyPad';
+import LilyPadWithFrog from './svg/TrailIcons/LilyPadWithFrog';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -36,13 +38,7 @@ const TrailStepsScreen = ({ route, navigation }) => {
 
   const fetchTrailSteps = async () => {
     try {
-      const token = await AuthService.getToken();
-      const response = await fetch('http://192.168.0.27:8080/api/exercises/trail-steps-progress', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await AuthService.authenticatedFetch('/exercises/trail-steps-progress');
 
       const data = await response.json();
       if (data.success) {
@@ -61,28 +57,38 @@ const TrailStepsScreen = ({ route, navigation }) => {
   };
 
   const getStepStonePosition = (stepNumber, totalSteps, availableHeight) => {
-    // Create natural stepping stone positions with varying alignment
+    // Create natural lily pad positions with varying alignment
     const verticalVariation = 20;
-    const horizontalVariation = 50;
-    const topMargin = 40; // Start stones away from the top edge
-    const bottomMargin = 80; // Keep stones away from bottom edge
+    const horizontalVariation = 80;
+    const topMargin = 20;
+    const bottomMargin = 40;
     
-    // Calculate available space for stones
+    // Calculate available space for lily pads
     const usableHeight = availableHeight - topMargin - bottomMargin;
+    const idealSpacing = totalSteps > 1 ? usableHeight / (totalSteps - 1) : 0;
+    const baseSpacing = idealSpacing;
     
-    // Distribute stones evenly in the available height
-    const baseSpacing = totalSteps > 1 ? usableHeight / (totalSteps - 1) : 0;
+    // Calculate position with natural variation
     const baseY = topMargin + ((stepNumber - 1) * baseSpacing);
     
-    // Add natural variation based on step number
-    const horizontalOffset = (stepNumber % 3 === 0) ? -horizontalVariation : 
-                           (stepNumber % 3 === 1) ? horizontalVariation : 0;
+    // More varied horizontal positioning
+    const horizontalOffset = (stepNumber % 4 === 0) ? -horizontalVariation : 
+                           (stepNumber % 4 === 1) ? horizontalVariation : 
+                           (stepNumber % 4 === 2) ? -horizontalVariation * 0.6 : 
+                           horizontalVariation * 0.7;
     
-    const verticalOffset = Math.sin(stepNumber * 0.8) * verticalVariation;
+    const verticalOffset = Math.sin(stepNumber * 1.2) * verticalVariation;
+    
+    // Add natural lily pad variations
+    const rotation = (stepNumber * 23) % 360 - 180; // Random-ish rotation
+    const scale = 0.85 + (stepNumber * 0.07) % 0.3; // Size variation
     
     return {
       x: (screenWidth / 2) + horizontalOffset,
       y: baseY + verticalOffset,
+      horizontalOffset: horizontalOffset,
+      rotation: rotation,
+      scale: scale,
     };
   };
 
@@ -90,12 +96,26 @@ const TrailStepsScreen = ({ route, navigation }) => {
     const position = getStepStonePosition(trailStep.stepNumber, trail.trailStepsCount, riverHeight);
     const isUnlocked = trailStep.isUnlocked;
     const hasExercises = trailStep.exercisesCount > 0;
+    const horizontalOffset = position.horizontalOffset;
+    
+    // Debug logging
+    console.log(`Step ${trailStep.stepNumber}: isUnlocked=${isUnlocked}, hasExercises=${hasExercises}, completedExercises=${completedExercises}, totalExercises=${totalExercises}, isNextStep=${isNextStep}`);
     
     // Calculate completion status
     const completedExercises = trailStep.exercises?.filter(ex => ex.passed).length || 0;
-    const totalExercises = trailStep.exercisesCount;
+    const totalExercises = trailStep.exercisesCount || 0;
     const isCompleted = completedExercises === totalExercises && totalExercises > 0;
     const isPartiallyCompleted = completedExercises > 0 && completedExercises < totalExercises;
+    
+    // Determine if this step should show a frog (next step to work on)
+    // Find the first step that's unlocked but not completed
+    const allSteps = trail.trailSteps || [];
+    const firstIncompleteStep = allSteps.find(step => {
+      const stepCompleted = (step.exercises?.filter(ex => ex.passed).length || 0);
+      const stepTotal = step.exercisesCount || 0;
+      return step.isUnlocked && stepTotal > 0 && stepCompleted < stepTotal;
+    });
+    const isNextStep = firstIncompleteStep?.id === trailStep.id;
 
     const handleStepPress = () => {
       if (!isUnlocked) {
@@ -128,21 +148,50 @@ const TrailStepsScreen = ({ route, navigation }) => {
         style={[
           styles.steppingStone,
           {
-            left: position.x - 40, // Center the stone (80/2)
+            left: position.x - 30, // Center the book (60/2)
             top: position.y,
           },
-          isUnlocked ? styles.stoneUnlocked : styles.stoneLocked,
-          isCompleted && styles.stoneCompleted,
-          isPartiallyCompleted && styles.stonePartial,
         ]}
         onPress={handleStepPress}
         disabled={!isUnlocked}
         activeOpacity={isUnlocked ? 0.7 : 1}
       >
-        <View style={styles.stoneContent}>
+        {/* Lily Pad Container - gets transformed */}
+        <View style={[
+          styles.lilyPadContainer,
+          {
+            transform: [
+              { rotate: `${position.rotation}deg` },
+              { scale: position.scale },
+            ]
+          }
+        ]}>
+          {isNextStep ? (
+            <LilyPadWithFrog 
+              width={64} 
+              height={64}
+              isCompleted={isCompleted}
+              isUnlocked={isUnlocked}
+              isPartiallyCompleted={isPartiallyCompleted}
+              style={styles.lilyPadSvg}
+            />
+          ) : (
+            <LilyPad 
+              width={64} 
+              height={64}
+              isCompleted={isCompleted}
+              isUnlocked={isUnlocked}
+              isPartiallyCompleted={isPartiallyCompleted}
+              style={styles.lilyPadSvg}
+            />
+          )}
+        </View>
+        
+        {/* Text Container - stays horizontal */}
+        <View style={styles.stoneContent}>          
           <Text style={[
             styles.stepNumber,
-            isUnlocked ? styles.textUnlocked : styles.textLocked
+            styles.textUnlocked
           ]}>
             {trailStep.stepNumber}
           </Text>
@@ -162,30 +211,26 @@ const TrailStepsScreen = ({ route, navigation }) => {
           )}
         </View>
         
-        <View style={styles.stepLabel}>
+        <View style={[
+          styles.stepLabel,
+          horizontalOffset > 0 ? styles.stepLabelLeft : styles.stepLabelRight
+        ]}>
           <Text style={[
             styles.stepName,
-            isUnlocked ? styles.textUnlocked : styles.textLocked
+            styles.textUnlocked
           ]}>
             {trailStep.name}
           </Text>
           {totalExercises > 0 && (
             <Text style={[
               styles.exerciseCount,
-              isUnlocked ? styles.textUnlockedSecondary : styles.textLockedSecondary
+              styles.textUnlocked
             ]}>
               {totalExercises} exercise{totalExercises !== 1 ? 's' : ''}
             </Text>
           )}
         </View>
         
-        {/* Connection line to next stone */}
-        {stepIndex < trail.trailStepsCount - 1 && (
-          <View style={[
-            styles.connectionLine,
-            isUnlocked ? styles.lineUnlocked : styles.lineLocked
-          ]} />
-        )}
       </TouchableOpacity>
     );
   };
@@ -211,8 +256,8 @@ const TrailStepsScreen = ({ route, navigation }) => {
     });
 
     // Calculate available height for river background
-    // Account for: header (~100px), trail header (~120px), progress card (~180px), margins and padding
-    const riverHeight = Math.max(screenHeight - 400, 300);
+    // Account for: header (~100px), trail header (~80px), margins and padding
+    const riverHeight = Math.max(screenHeight - 280, 400);
 
     return (
       <View key={trail.id} style={styles.trailContainer}>
@@ -222,30 +267,6 @@ const TrailStepsScreen = ({ route, navigation }) => {
           <Text style={styles.categoryDescription}>
             {categoryData.description || 'Progress through each step to master this category'}
           </Text>
-        </View>
-        
-        {/* Progress Information Card */}
-        <View style={styles.progressCard}>
-          <Text style={styles.progressTitle}>Progress Overview</Text>
-          <View style={styles.progressStats}>
-            <View style={styles.progressStat}>
-              <Text style={styles.progressNumber}>{trail.trailStepsCount}</Text>
-              <Text style={styles.progressLabel}>Total Steps</Text>
-            </View>
-            <View style={styles.progressStat}>
-              <Text style={styles.progressNumber}>{completedSteps}</Text>
-              <Text style={styles.progressLabel}>Completed</Text>
-            </View>
-            <View style={styles.progressStat}>
-              <Text style={styles.progressNumber}>{nextOpenStep ? nextOpenStep.stepNumber : '-'}</Text>
-              <Text style={styles.progressLabel}>Next Step</Text>
-            </View>
-          </View>
-          {nextOpenStep && (
-            <Text style={styles.nextStepName}>
-              Next: {nextOpenStep.name}
-            </Text>
-          )}
         </View>
         
         {/* River Background - fills remaining space */}
@@ -418,7 +439,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     padding: 15,
     borderRadius: 12,
-    marginBottom: 5,
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -439,14 +460,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(64, 164, 223, 0.3)',
     borderRadius: 20,
-    overflow: 'hidden',
+    overflow: 'visible',
     minHeight: 400,
     position: 'relative',
+    paddingBottom: 40,
   },
   ripple: {
     position: 'absolute',
     borderRadius: 50,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    zIndex: 1,
   },
   ripple1: {
     width: 100,
@@ -468,42 +491,35 @@ const styles = StyleSheet.create({
   },
   steppingStone: {
     position: 'absolute',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 60,
+    height: 50,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowRadius: 4,
+    elevation: 10,
+    zIndex: 10,
   },
-  stoneLocked: {
-    backgroundColor: '#cccccc',
-    borderWidth: 2,
-    borderColor: '#999999',
+  lilyPadContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
-  stoneUnlocked: {
-    backgroundColor: '#4CAF50',
-    borderWidth: 2,
-    borderColor: '#2E7D32',
-  },
-  stoneCompleted: {
-    backgroundColor: '#2196F3',
-    borderColor: '#1565C0',
-  },
-  stonePartial: {
-    backgroundColor: '#FF9800',
-    borderColor: '#E65100',
+  lilyPadSvg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   stoneContent: {
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    zIndex: 15,
   },
   stepNumber: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   textLocked: {
@@ -535,10 +551,20 @@ const styles = StyleSheet.create({
   },
   stepLabel: {
     position: 'absolute',
-    top: 85,
-    left: -30,
-    right: -30,
+    top: 20,
+    width: 100,
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    zIndex: 12,
+  },
+  stepLabelLeft: {
+    right: 50,
+  },
+  stepLabelRight: {
+    left: 50,
   },
   stepName: {
     fontSize: 14,

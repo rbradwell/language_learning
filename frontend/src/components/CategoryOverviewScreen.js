@@ -45,13 +45,7 @@ const CategoryOverviewScreen = ({ navigation }) => {
 
   const fetchCategorySummary = async () => {
     try {
-      const token = await AuthService.getToken();
-      const response = await fetch('http://192.168.0.27:8080/api/exercises/category-summary', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await AuthService.authenticatedFetch('/exercises/category-summary');
 
       const data = await response.json();
       if (data.success) {
