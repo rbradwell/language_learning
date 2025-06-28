@@ -1,5 +1,5 @@
 // src/components/VocabularyMatchingGame.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -32,10 +32,11 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
   const [loading, setLoading] = useState(false);
   const [updatedStepData, setUpdatedStepData] = useState(null);
   const [fetchingProgressData, setFetchingProgressData] = useState(false);
+  const [isShowingFeedback, setIsShowingFeedback] = useState(false);
   
-  // Animation refs
-  const feedbackScale = useRef(new Animated.Value(0)).current;
-  const feedbackOpacity = useRef(new Animated.Value(0)).current;
+  // Animation refs - use useMemo to ensure they're only created once
+  const feedbackScale = useMemo(() => new Animated.Value(0), []);
+  const feedbackOpacity = useMemo(() => new Animated.Value(0), []);
   const [feedbackType, setFeedbackType] = useState(null); // 'correct' or 'incorrect'
   
   // Timer refs
@@ -284,19 +285,19 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
       .filter((_, index) => index !== questionIndex)
       .filter(v => v.targetWord !== correctAnswer); // Ensure no duplicates
     
-    // Randomly select 4 distractors
+    // Randomly select 3 distractors (we need 4 total options: 1 correct + 3 distractors)
     const shuffledDistractors = [...otherVocabItems].sort(() => Math.random() - 0.5);
-    const distractorItems = shuffledDistractors.slice(0, 4);
+    const distractorItems = shuffledDistractors.slice(0, 3);
     
-    // Ensure we have exactly 4 distractors (pad with placeholder if needed)
-    while (distractorItems.length < 4) {
+    // Only add placeholders if we don't have enough vocabulary items for 3 distractors
+    while (distractorItems.length < 3) {
       distractorItems.push({ 
         targetWord: `Option ${distractorItems.length + 1}`, 
         pronunciation: '' 
       });
     }
     
-    // Create options array with pronunciation: correct answer + 4 distractors, then shuffle
+    // Create options array with pronunciation: correct answer + 3 distractors, then shuffle
     const allOptions = [currentVocab, ...distractorItems];
     const shuffledOptions = allOptions.sort(() => Math.random() - 0.5);
     
@@ -333,6 +334,11 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
   };
 
   const submitAnswer = async (selectedAnswer) => {
+    // Prevent multiple submissions during feedback animation
+    if (isShowingFeedback) {
+      return;
+    }
+    
     try {
       console.log('Submitting answer:', {
         selectedAnswer,
@@ -373,7 +379,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
               // Generate next question - server will determine which vocabulary to show next
               generateNextQuestionFromServer();
             }
-          }, 1500);
+          }, 1000);
         } else {
           // Incorrect answer - show feedback but stay on same question
           showFeedback('incorrect');
@@ -452,42 +458,47 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
 
   const showFeedback = (type) => {
     setFeedbackType(type);
+    setIsShowingFeedback(true);
     
     // Reset animation values
     feedbackScale.setValue(0);
     feedbackOpacity.setValue(0);
     
-    // Animate feedback
+    // Animate feedback - faster animation
     Animated.parallel([
       Animated.spring(feedbackScale, {
         toValue: 1,
-        tension: 50,
-        friction: 3,
+        tension: 80,
+        friction: 4,
         useNativeDriver: true,
       }),
       Animated.timing(feedbackOpacity, {
         toValue: 1,
-        duration: 200,
+        duration: 150,
         useNativeDriver: true,
       }),
     ]).start();
     
-    // Hide feedback after delay
+    // Hide feedback after delay - faster feedback
+    const feedbackDelay = type === 'correct' ? 800 : 600;
     setTimeout(() => {
       Animated.parallel([
         Animated.spring(feedbackScale, {
           toValue: 0,
-          tension: 50,
-          friction: 3,
+          tension: 80,
+          friction: 4,
           useNativeDriver: true,
         }),
         Animated.timing(feedbackOpacity, {
           toValue: 0,
-          duration: 200,
+          duration: 150,
           useNativeDriver: true,
         }),
-      ]).start();
-    }, type === 'correct' ? 1200 : 800);
+      ]).start(() => {
+        // Re-enable taps after animation completes
+        setIsShowingFeedback(false);
+      });
+    }, feedbackDelay);
   };
 
   const completeExercise = async (finalScore, exerciseTime) => {
