@@ -502,7 +502,6 @@ const styles = StyleSheet.create({
   },
   pondSvg: {
     flex: 1,
-    borderRadius: 20,
     overflow: 'hidden',
   },
   pondSvgDirect: {
