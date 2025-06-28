@@ -55,7 +55,7 @@ const MainScreen = ({ navigation }) => {
         name="CategoryOverview" 
         component={CategoryOverviewScreen}
         options={{
-          header: () => <AppHeader title="Learning Categories" onLogout={handleLogout} />
+          headerShown: false
         }}
       />
       

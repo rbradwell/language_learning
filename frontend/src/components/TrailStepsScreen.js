@@ -83,10 +83,8 @@ const TrailStepsScreen = ({ route, navigation }) => {
     const centerX = screenWidth / 2;
     const maxSafeOffset = (screenWidth / 2) - lilyPadRadius - pondMargin - sideMargin;
     
-    console.log(`screenWidth=${screenWidth}, centerX=${centerX}, maxSafeOffset=${maxSafeOffset}`);
-    
-    const horizontalOffset = (stepNumber % 3 === 0) ? -maxSafeOffset * 0.6 : 
-                           (stepNumber % 3 === 1) ? maxSafeOffset * 0.6 : 
+    const horizontalOffset = (stepNumber % 3 === 0) ? -maxSafeOffset * 0.8 : 
+                           (stepNumber % 3 === 1) ? maxSafeOffset * 0.8 : 
                            0; // Center
     
     const verticalOffset = Math.sin(stepNumber * 1.2) * verticalVariation;
@@ -110,8 +108,8 @@ const TrailStepsScreen = ({ route, navigation }) => {
     const hasExercises = trailStep.exercisesCount > 0;
     const horizontalOffset = position.horizontalOffset;
     
-    // Debug logging
-    console.log(`Step ${trailStep.stepNumber}: position.x=${position.x}, screenWidth=${screenWidth}, horizontalOffset=${position.horizontalOffset}`);
+    // Debug logging - remove when working
+    // console.log(`Step ${trailStep.stepNumber}: position.x=${position.x}, screenWidth=${screenWidth}, horizontalOffset=${position.horizontalOffset}`);
     
     // Calculate completion status
     const completedExercises = trailStep.exercises?.filter(ex => ex.passed).length || 0;
@@ -278,11 +276,12 @@ const TrailStepsScreen = ({ route, navigation }) => {
         
         {/* Lily Pond Background - fills remaining space */}
         <View style={[styles.pondBackground, { height: riverHeight }]}>
-          <LilyPond 
-            width="100%" 
-            height={riverHeight}
-            style={styles.pondSvg}
-          />
+          <View style={styles.pondSvg}>
+            <LilyPond 
+              width={screenWidth} 
+              height={riverHeight}
+            />
+          </View>
           
           {trail.trailSteps.map((trailStep, stepIndex) => 
             renderSteppingStone(trailStep, stepIndex, trail, riverHeight)
@@ -440,14 +439,13 @@ const styles = StyleSheet.create({
   },
   trailContainer: {
     flex: 1,
-    margin: 20,
-    marginTop: 10,
   },
   trailHeader: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     padding: 15,
     borderRadius: 12,
     marginBottom: 20,
+    marginHorizontal: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -466,20 +464,14 @@ const styles = StyleSheet.create({
   },
   pondBackground: {
     flex: 1,
-    borderRadius: 20,
     overflow: 'visible',
     minHeight: 400,
     position: 'relative',
     paddingBottom: 40,
-    marginHorizontal: 20,
   },
   pondSvg: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 0,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
   steppingStone: {
     position: 'absolute',

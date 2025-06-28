@@ -2,13 +2,12 @@ import React from 'react';
 import Svg, { Defs, RadialGradient, Stop, Rect, Path } from 'react-native-svg';
 
 const LilyPond = ({ width = 800, height = 600, ...props }) => {
-  // Calculate responsive viewBox based on actual dimensions
-  const aspectRatio = width / height;
-  const baseWidth = 800;
-  const baseHeight = baseWidth / aspectRatio;
+  // Ensure we have valid numbers
+  const safeWidth = Number(width) || 800;
+  const safeHeight = Number(height) || 600;
   
   return (
-  <Svg width={width} height={height} viewBox={`0 0 ${baseWidth} ${baseHeight}`} {...props}>
+  <Svg width={safeWidth} height={safeHeight} viewBox="0 0 800 600" {...props}>
     <Defs>
       <RadialGradient id="pondGradient" cx="50%" cy="50%" r="70%">
         <Stop offset="0%" stopColor="#B3E5FC"/>

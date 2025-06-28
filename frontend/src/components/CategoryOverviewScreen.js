@@ -13,6 +13,7 @@ import {
 import { Svg, Circle, Path, Polygon, Rect } from 'react-native-svg';
 import { useFocusEffect } from '@react-navigation/native';
 import AuthService from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -31,6 +32,7 @@ const CategoryIcon = ({ size = 80 }) => (
 const CategoryOverviewScreen = ({ navigation }) => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { logout } = useAuth();
 
   useEffect(() => {
     fetchCategorySummary();
@@ -65,6 +67,15 @@ const CategoryOverviewScreen = ({ navigation }) => {
     navigation.navigate('TrailSteps', {
       category: category
     });
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      Alert.alert('Success', 'Logged out successfully');
+    } catch (error) {
+      Alert.alert('Error', 'Logout failed');
+    }
   };
 
   const renderCategoryCard = (category) => {
@@ -195,10 +206,17 @@ const CategoryOverviewScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Learning Categories</Text>
-        <Text style={styles.headerSubtitle}>
-          Choose a category to start your learning journey
-        </Text>
+        <View style={styles.headerContent}>
+          <View style={styles.headerText}>
+            <Text style={styles.headerTitle}>Learning Categories</Text>
+            <Text style={styles.headerSubtitle}>
+              Choose a category to start your learning journey
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView 
@@ -265,9 +283,18 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: 'white',
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingTop: 50,
+    paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerText: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: 28,
@@ -405,6 +432,22 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 20,
+  },
+  logoutButton: {
+    backgroundColor: '#FF3B30',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  logoutButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 
