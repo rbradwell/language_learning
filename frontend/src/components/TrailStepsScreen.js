@@ -1,5 +1,5 @@
 // src/components/TrailStepsScreen.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,14 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  Animated,
+  Easing,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import AuthService from '../services/authService';
 import LilyPad from './svg/TrailIcons/LilyPad';
 import LilyPadWithFrog from './svg/TrailIcons/LilyPadWithFrog';
+import Frog from './svg/TrailIcons/Frog';
 import LilyPond from './svg/TrailIcons/LilyPond';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -22,6 +25,11 @@ const TrailStepsScreen = ({ route, navigation }) => {
   const { category } = route?.params || {};
   const [categoryData, setCategoryData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [frogHasJumped, setFrogHasJumped] = useState(false);
+  const animationInProgress = useRef(false);
+  const frogPosition = useRef(new Animated.ValueXY()).current;
+  const frogOpacity = useRef(new Animated.Value(1)).current;
+  const frogRotation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (category) {
@@ -35,9 +43,58 @@ const TrailStepsScreen = ({ route, navigation }) => {
   // Refresh data when screen comes into focus (user navigates back)
   useFocusEffect(
     useCallback(() => {
-      fetchTrailSteps();
+      if (!animationInProgress.current) {
+        fetchTrailSteps();
+      }
     }, [])
   );
+
+  // Animation function to make frog jump to target
+  const animateFrogJump = (targetX, targetY, targetRotation) => {
+    // Animation state should already be set by caller
+    
+    const startingPadPosition = {
+      x: screenWidth / 2 - 48, // Adjust for lily pad center
+      y: screenHeight - 300,
+    };
+
+    // Calculate the distance to move
+    const deltaX = targetX - startingPadPosition.x;
+    const deltaY = targetY - startingPadPosition.y;
+
+    // Set initial position and rotation
+    frogPosition.setValue({ x: 0, y: 0 });
+    frogRotation.setValue(0);
+    
+    console.log('Starting 3-second animation...');
+    const startTime = Date.now();
+
+    // Create jumping animation sequence with slower easing
+    Animated.parallel([
+      // Jump up and forward while rotating
+      Animated.timing(frogPosition, {
+        toValue: { x: deltaX, y: deltaY },
+        duration: 3000,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: false,
+      }),
+      Animated.timing(frogRotation, {
+        toValue: targetRotation,
+        duration: 3000,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: false,
+      }),
+    ]).start(() => {
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      console.log(`Animation completed! Actual duration: ${duration}ms`);
+      // Immediately switch to target lily pad when animation completes
+      setFrogHasJumped(true);
+      animationInProgress.current = false;
+      // Hide the animated frog instantly
+      frogOpacity.setValue(0);
+    });
+  };
 
   const fetchTrailSteps = async () => {
     try {
@@ -48,6 +105,46 @@ const TrailStepsScreen = ({ route, navigation }) => {
         // Find the specific category data
         const categoryDetails = data.data.find(cat => cat.id === category.id);
         setCategoryData(categoryDetails);
+
+        // Only trigger animation if none is in progress and frog hasn't jumped yet
+        console.log('Data loaded, checking animation state:', { animationInProgress: animationInProgress.current, frogHasJumped });
+        
+        if (!animationInProgress.current && !frogHasJumped) {
+          console.log('Resetting animation state and starting animation...');
+          // Set animation state immediately to prevent race conditions
+          animationInProgress.current = true;
+          setFrogHasJumped(false);
+          frogOpacity.setValue(1);
+          
+          setTimeout(() => {
+            if (categoryDetails && categoryDetails.trails && categoryDetails.trails[0]) {
+              const trail = categoryDetails.trails[0];
+              const nextOpenStep = trail.trailSteps.find(step => {
+                const completedExercises = step.exercises?.filter(ex => ex.passed).length || 0;
+                return step.isUnlocked && (completedExercises < step.exercisesCount || step.exercisesCount === 0);
+              });
+
+              if (nextOpenStep) {
+                console.log('Starting frog jump animation...');
+                const targetPosition = getStepStonePosition(
+                  nextOpenStep.stepNumber,
+                  trail.trailStepsCount,
+                  screenHeight - 140
+                );
+                // Animate to target rotation to see if it matches
+                animateFrogJump(targetPosition.x - 48, targetPosition.y, targetPosition.rotation);
+              } else {
+                // No animation needed, reset state
+                animationInProgress.current = false;
+              }
+            } else {
+              // No animation needed, reset state
+              animationInProgress.current = false;
+            }
+          }, 500); // Small delay to let UI settle
+        } else {
+          console.log('Skipping animation - already in progress or completed');
+        }
       } else {
         Alert.alert('Error', data.message || 'Failed to load trail steps');
       }
@@ -119,15 +216,14 @@ const TrailStepsScreen = ({ route, navigation }) => {
     const isCompleted = completedExercises === totalExercises && totalExercises > 0;
     const isPartiallyCompleted = completedExercises > 0 && completedExercises < totalExercises;
     
-    // Determine if this step should show a frog (next step to work on)
-    // Find the first step that's unlocked but not completed
+    // Show frog on target step after jump animation completes
     const allSteps = trail.trailSteps || [];
     const firstIncompleteStep = allSteps.find(step => {
       const stepCompleted = (step.exercises?.filter(ex => ex.passed).length || 0);
       const stepTotal = step.exercisesCount || 0;
       return step.isUnlocked && stepTotal > 0 && stepCompleted < stepTotal;
     });
-    const isNextStep = firstIncompleteStep?.id === trailStep.id;
+    const isNextStep = frogHasJumped && firstIncompleteStep?.id === trailStep.id;
 
     const handleStepPress = () => {
       if (!isUnlocked) {
@@ -262,6 +358,13 @@ const TrailStepsScreen = ({ route, navigation }) => {
       return step.isUnlocked && (completedExercises < step.exercises.length || step.exercises.length === 0);
     });
 
+    // Starting lily pad position (bottom center)
+    const startingPadPosition = {
+      x: screenWidth / 2,
+      y: screenHeight - 300, // Near bottom of screen
+    };
+
+
     return (
       <View key={trail.id} style={styles.trailContainer}>
         {/* Lily Pond Background - fills remaining space */}
@@ -272,6 +375,55 @@ const TrailStepsScreen = ({ route, navigation }) => {
               height="100%"
             />
           </View>
+          
+          {/* Starting Lily Pad (stationary) */}
+          <TouchableOpacity
+            style={[
+              styles.steppingStone,
+              {
+                left: startingPadPosition.x - 48,
+                top: startingPadPosition.y,
+              },
+            ]}
+          >
+            <View style={styles.lilyPadContainer}>
+              <LilyPad 
+                width={96} 
+                height={96}
+                isCompleted={false}
+                isUnlocked={true}
+                isPartiallyCompleted={false}
+                style={styles.lilyPadSvg}
+              />
+            </View>
+          </TouchableOpacity>
+
+          {/* Animated Frog (moves from starting pad to target) */}
+          <Animated.View
+            style={[
+              styles.animatedFrog,
+              {
+                left: startingPadPosition.x - 48, // Center frog on lily pad
+                top: startingPadPosition.y,       // Align with lily pad
+                opacity: frogOpacity,
+                transform: [
+                  { translateX: frogPosition.x },
+                  { translateY: frogPosition.y },
+                  { 
+                    rotate: frogRotation.interpolate({
+                      inputRange: [0, 360],
+                      outputRange: ['0deg', '360deg'],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <Frog 
+              width={96} 
+              height={96}
+            />
+          </Animated.View>
           
           {trail.trailSteps.map((trailStep, stepIndex) => 
             renderSteppingStone(trailStep, stepIndex, trail, screenHeight - 140)
@@ -534,6 +686,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
+  },
+  animatedFrog: {
+    position: 'absolute',
+    width: 96,
+    height: 96,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20, // Higher than regular stepping stones
   },
   stoneContent: {
     justifyContent: 'center',
