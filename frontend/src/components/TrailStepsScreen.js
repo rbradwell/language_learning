@@ -14,6 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import AuthService from '../services/authService';
 import LilyPad from './svg/TrailIcons/LilyPad';
 import LilyPadWithFrog from './svg/TrailIcons/LilyPadWithFrog';
+import LilyPond from './svg/TrailIcons/LilyPond';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -57,34 +58,45 @@ const TrailStepsScreen = ({ route, navigation }) => {
   };
 
   const getStepStonePosition = (stepNumber, totalSteps, availableHeight) => {
-    // Create natural lily pad positions with varying alignment
-    const verticalVariation = 20;
-    const horizontalVariation = 80;
-    const topMargin = 20;
-    const bottomMargin = 40;
+    // Create natural lily pad positions that stay within bounds
+    const verticalVariation = 15; // Slightly increased for natural look
+    const horizontalVariation = 100; // Increased for better spread
+    const topMargin = 60; // Increased for larger lily pads
+    const bottomMargin = 100; // Increased for larger lily pads and labels
+    const sideMargin = 60; // Increased for larger lily pads
     
     // Calculate available space for lily pads
     const usableHeight = availableHeight - topMargin - bottomMargin;
-    const idealSpacing = totalSteps > 1 ? usableHeight / (totalSteps - 1) : 0;
-    const baseSpacing = idealSpacing;
+    const usableWidth = screenWidth - (sideMargin * 2); // Account for side margins
     
-    // Calculate position with natural variation
+    // Ensure good spacing for larger lily pads
+    const maxSpacing = Math.min(usableHeight / Math.max(totalSteps - 1, 1), 120); // Increased cap
+    const idealSpacing = totalSteps > 1 ? usableHeight / (totalSteps - 1) : 0;
+    const baseSpacing = Math.min(idealSpacing, maxSpacing);
+    
+    // Calculate position with proper spacing for larger pads
     const baseY = topMargin + ((stepNumber - 1) * baseSpacing);
     
-    // More varied horizontal positioning
-    const horizontalOffset = (stepNumber % 4 === 0) ? -horizontalVariation : 
-                           (stepNumber % 4 === 1) ? horizontalVariation : 
-                           (stepNumber % 4 === 2) ? -horizontalVariation * 0.6 : 
-                           horizontalVariation * 0.7;
+    // Simplified horizontal positioning - keep lily pads well within bounds
+    const lilyPadRadius = 48; // Half of 96px lily pad width
+    const pondMargin = 20; // Additional safety margin
+    const centerX = screenWidth / 2;
+    const maxSafeOffset = (screenWidth / 2) - lilyPadRadius - pondMargin - sideMargin;
+    
+    console.log(`screenWidth=${screenWidth}, centerX=${centerX}, maxSafeOffset=${maxSafeOffset}`);
+    
+    const horizontalOffset = (stepNumber % 3 === 0) ? -maxSafeOffset * 0.6 : 
+                           (stepNumber % 3 === 1) ? maxSafeOffset * 0.6 : 
+                           0; // Center
     
     const verticalOffset = Math.sin(stepNumber * 1.2) * verticalVariation;
     
     // Add natural lily pad variations
-    const rotation = (stepNumber * 23) % 360 - 180; // Random-ish rotation
-    const scale = 0.85 + (stepNumber * 0.07) % 0.3; // Size variation
+    const rotation = (stepNumber * 23) % 120 - 60; // Keep same rotation range
+    const scale = 0.85 + (stepNumber * 0.06) % 0.3; // Slightly more size variation
     
     return {
-      x: (screenWidth / 2) + horizontalOffset,
+      x: centerX + horizontalOffset,
       y: baseY + verticalOffset,
       horizontalOffset: horizontalOffset,
       rotation: rotation,
@@ -99,7 +111,7 @@ const TrailStepsScreen = ({ route, navigation }) => {
     const horizontalOffset = position.horizontalOffset;
     
     // Debug logging
-    console.log(`Step ${trailStep.stepNumber}: isUnlocked=${isUnlocked}, hasExercises=${hasExercises}, completedExercises=${completedExercises}, totalExercises=${totalExercises}, isNextStep=${isNextStep}`);
+    console.log(`Step ${trailStep.stepNumber}: position.x=${position.x}, screenWidth=${screenWidth}, horizontalOffset=${position.horizontalOffset}`);
     
     // Calculate completion status
     const completedExercises = trailStep.exercises?.filter(ex => ex.passed).length || 0;
@@ -148,7 +160,7 @@ const TrailStepsScreen = ({ route, navigation }) => {
         style={[
           styles.steppingStone,
           {
-            left: position.x - 30, // Center the book (60/2)
+            left: position.x - 48, // Center the lily pad (96/2)
             top: position.y,
           },
         ]}
@@ -168,8 +180,8 @@ const TrailStepsScreen = ({ route, navigation }) => {
         ]}>
           {isNextStep ? (
             <LilyPadWithFrog 
-              width={64} 
-              height={64}
+              width={96} 
+              height={96}
               isCompleted={isCompleted}
               isUnlocked={isUnlocked}
               isPartiallyCompleted={isPartiallyCompleted}
@@ -177,8 +189,8 @@ const TrailStepsScreen = ({ route, navigation }) => {
             />
           ) : (
             <LilyPad 
-              width={64} 
-              height={64}
+              width={96} 
+              height={96}
               isCompleted={isCompleted}
               isUnlocked={isUnlocked}
               isPartiallyCompleted={isPartiallyCompleted}
@@ -187,15 +199,8 @@ const TrailStepsScreen = ({ route, navigation }) => {
           )}
         </View>
         
-        {/* Text Container - stays horizontal */}
+        {/* Status indicators only */}
         <View style={styles.stoneContent}>          
-          <Text style={[
-            styles.stepNumber,
-            styles.textUnlocked
-          ]}>
-            {trailStep.stepNumber}
-          </Text>
-          
           {isCompleted && (
             <View style={styles.statusIndicator}>
               <Text style={styles.checkmark}>✓</Text>
@@ -211,25 +216,27 @@ const TrailStepsScreen = ({ route, navigation }) => {
           )}
         </View>
         
-        <View style={[
-          styles.stepLabel,
-          horizontalOffset > 0 ? styles.stepLabelLeft : styles.stepLabelRight
-        ]}>
-          <Text style={[
-            styles.stepName,
-            styles.textUnlocked
+        {isNextStep && (
+          <View style={[
+            styles.stepLabel,
+            horizontalOffset > 0 ? styles.stepLabelLeft : styles.stepLabelRight
           ]}>
-            {trailStep.name}
-          </Text>
-          {totalExercises > 0 && (
             <Text style={[
-              styles.exerciseCount,
+              styles.stepName,
               styles.textUnlocked
             ]}>
-              {totalExercises} exercise{totalExercises !== 1 ? 's' : ''}
+              {trailStep.name}
             </Text>
-          )}
-        </View>
+            {totalExercises > 0 && (
+              <Text style={[
+                styles.exerciseCount,
+                styles.textUnlocked
+              ]}>
+                {totalExercises} exercise{totalExercises !== 1 ? 's' : ''}
+              </Text>
+            )}
+          </View>
+        )}
         
       </TouchableOpacity>
     );
@@ -269,12 +276,13 @@ const TrailStepsScreen = ({ route, navigation }) => {
           </Text>
         </View>
         
-        {/* River Background - fills remaining space */}
-        <View style={[styles.riverBackground, { height: riverHeight }]}>
-          {/* Water ripples effect */}
-          <View style={[styles.ripple, styles.ripple1]} />
-          <View style={[styles.ripple, styles.ripple2]} />
-          <View style={[styles.ripple, styles.ripple3]} />
+        {/* Lily Pond Background - fills remaining space */}
+        <View style={[styles.pondBackground, { height: riverHeight }]}>
+          <LilyPond 
+            width="100%" 
+            height={riverHeight}
+            style={styles.pondSvg}
+          />
           
           {trail.trailSteps.map((trailStep, stepIndex) => 
             renderSteppingStone(trailStep, stepIndex, trail, riverHeight)
@@ -456,43 +464,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
-  riverBackground: {
+  pondBackground: {
     flex: 1,
-    backgroundColor: 'rgba(64, 164, 223, 0.3)',
     borderRadius: 20,
     overflow: 'visible',
     minHeight: 400,
     position: 'relative',
     paddingBottom: 40,
+    marginHorizontal: 20,
   },
-  ripple: {
+  pondSvg: {
     position: 'absolute',
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    zIndex: 1,
-  },
-  ripple1: {
-    width: 100,
-    height: 20,
-    top: 50,
-    left: 30,
-  },
-  ripple2: {
-    width: 80,
-    height: 15,
-    top: 150,
-    right: 40,
-  },
-  ripple3: {
-    width: 120,
-    height: 25,
-    top: 280,
-    left: 50,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 0,
   },
   steppingStone: {
     position: 'absolute',
-    width: 60,
-    height: 50,
+    width: 96,
+    height: 96,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
