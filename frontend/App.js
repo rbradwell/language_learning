@@ -2,7 +2,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { ActivityIndicator, View, StyleSheet, Alert } from 'react-native';
+import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import LoginScreen from './src/components/LoginScreen';
 import RegisterScreen from './src/components/RegisterScreen';
@@ -14,31 +14,12 @@ const Stack = createStackNavigator();
 const AppContent = () => {
   const { isAuthenticated, loading, error, logout } = useAuth();
 
-  // Show error alert if there's an authentication error
+  // Handle session expiration silently
   React.useEffect(() => {
     if (error) {
-      // Only show popup for actual login failures, not automatic token refresh failures
-      if (!error.includes('Token refresh') && 
-          !error.includes('attempting refresh') && 
-          !error.includes('Token expired') &&
-          !error.includes('Token has expired') &&
-          !error.includes('expired token') &&
-          !error.includes('Invalid or expired refresh token')) {
-        Alert.alert(
-          'Authentication Error',
-          error,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // If it's a session expired error, logout
-                if (error.includes('Session expired') || error.includes('expired')) {
-                  logout();
-                }
-              }
-            }
-          ]
-        );
+      // If it's a session expired error, logout silently
+      if (error.includes('Session expired') || error.includes('expired')) {
+        logout();
       }
     }
   }, [error, logout]);

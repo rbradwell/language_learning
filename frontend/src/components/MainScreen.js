@@ -64,22 +64,7 @@ const MainScreen = ({ navigation }) => {
         name="TrailSteps" 
         component={TrailStepsScreen}
         options={{
-          headerTitle: "Trail Steps",
-          headerBackTitle: "Categories",
-          headerStyle: { 
-            backgroundColor: '#007AFF',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
-            elevation: 3,
-          },
-          headerTintColor: 'white',
-          headerTitleStyle: { 
-            fontWeight: 'bold',
-            fontSize: 18 
-          },
-          headerBackTitleVisible: false,
+          headerShown: false
         }}
       />
       

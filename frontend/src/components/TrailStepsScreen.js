@@ -19,16 +19,18 @@ import LilyPond from './svg/TrailIcons/LilyPond';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 const TrailStepsScreen = ({ route, navigation }) => {
-  const { category } = route.params;
+  const { category } = route?.params || {};
   const [categoryData, setCategoryData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    navigation.setOptions({
-      title: category.name,
-    });
-    fetchTrailSteps();
-  }, []);
+    if (category) {
+      navigation.setOptions({
+        title: category.name,
+      });
+      fetchTrailSteps();
+    }
+  }, [category]);
 
   // Refresh data when screen comes into focus (user navigates back)
   useFocusEffect(
@@ -102,8 +104,8 @@ const TrailStepsScreen = ({ route, navigation }) => {
     };
   };
 
-  const renderSteppingStone = (trailStep, stepIndex, trail, riverHeight) => {
-    const position = getStepStonePosition(trailStep.stepNumber, trail.trailStepsCount, riverHeight);
+  const renderSteppingStone = (trailStep, stepIndex, trail, availableHeight) => {
+    const position = getStepStonePosition(trailStep.stepNumber, trail.trailStepsCount, availableHeight);
     const isUnlocked = trailStep.isUnlocked;
     const hasExercises = trailStep.exercisesCount > 0;
     const horizontalOffset = position.horizontalOffset;
@@ -260,31 +262,19 @@ const TrailStepsScreen = ({ route, navigation }) => {
       return step.isUnlocked && (completedExercises < step.exercises.length || step.exercises.length === 0);
     });
 
-    // Calculate available height for river background
-    // Account for: header (~100px), trail header (~80px), margins and padding
-    const riverHeight = Math.max(screenHeight - 280, 400);
-
     return (
       <View key={trail.id} style={styles.trailContainer}>
-        {/* Title and Description Card */}
-        <View style={styles.trailHeader}>
-          <Text style={styles.trailName}>{trail.name}</Text>
-          <Text style={styles.categoryDescription}>
-            {categoryData.description || 'Progress through each step to master this category'}
-          </Text>
-        </View>
-        
         {/* Lily Pond Background - fills remaining space */}
-        <View style={[styles.pondBackground, { height: riverHeight }]}>
+        <View style={styles.pondBackground}>
           <View style={styles.pondSvg}>
             <LilyPond 
-              width={screenWidth} 
-              height={riverHeight}
+              width="100%" 
+              height="100%"
             />
           </View>
           
           {trail.trailSteps.map((trailStep, stepIndex) => 
-            renderSteppingStone(trailStep, stepIndex, trail, riverHeight)
+            renderSteppingStone(trailStep, stepIndex, trail, screenHeight - 140)
           )}
         </View>
       </View>
@@ -316,15 +306,21 @@ const TrailStepsScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <ScrollView 
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {categoryData.trails.map(renderTrail)}
-        
-        <View style={styles.bottomPadding} />
-      </ScrollView>
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerText}>
+            <Text style={styles.headerTitle}>{category?.name || 'Loading...'}</Text>
+            <Text style={styles.headerSubtitle}>
+              Complete each step to master this category
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      
+      {categoryData.trails.map(renderTrail)}
     </View>
   );
 };
@@ -365,15 +361,46 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     lineHeight: 22,
   },
+  header: {
+    backgroundColor: 'white',
+    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerText: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#666',
+  },
   backButton: {
     backgroundColor: '#007AFF',
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    borderRadius: 25,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
   backButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
   categoryDescription: {
@@ -435,10 +462,13 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 50,
   },
   trailContainer: {
-    flex: 1,
+    position: 'absolute',
+    top: 180,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   trailHeader: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -463,15 +493,25 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   pondBackground: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 20,
+    right: 20,
+    bottom: 0,
     overflow: 'visible',
-    minHeight: 400,
-    position: 'relative',
-    paddingBottom: 40,
   },
   pondSvg: {
+    flex: 1,
     borderRadius: 20,
     overflow: 'hidden',
+  },
+  pondSvgDirect: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 20,
   },
   steppingStone: {
     position: 'absolute',
