@@ -3,30 +3,14 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up (queryInterface, Sequelize) {
-    // Remove timeSpent column from UserAnswers table
-    await queryInterface.removeColumn('UserAnswers', 'timeSpent');
-    
-    // Remove timeSpent column from UserProgresses table and add completionTime
-    await queryInterface.removeColumn('UserProgresses', 'timeSpent');
-    await queryInterface.addColumn('UserProgresses', 'completionTime', {
-      type: Sequelize.INTEGER,
-      allowNull: true,
-      comment: 'Time taken to complete the exercise in seconds'
-    });
+    // No-op: The tables already have the correct structure
+    // UserProgresses already has completionTime and never had timeSpent
+    // UserAnswers never had timeSpent
+    console.log('Migration skipped - tables already in correct state');
   },
 
   async down (queryInterface, Sequelize) {
-    // Add timeSpent back to UserAnswers table
-    await queryInterface.addColumn('UserAnswers', 'timeSpent', {
-      type: Sequelize.INTEGER,
-      defaultValue: 0
-    });
-    
-    // Remove completionTime and add timeSpent back to UserProgresses table
-    await queryInterface.removeColumn('UserProgresses', 'completionTime');
-    await queryInterface.addColumn('UserProgresses', 'timeSpent', {
-      type: Sequelize.INTEGER,
-      defaultValue: 0
-    });
+    // No-op: Nothing to revert since no changes were made
+    console.log('Migration rollback skipped - no changes to revert');
   }
 };

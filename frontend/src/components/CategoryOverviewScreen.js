@@ -10,24 +10,13 @@ import {
   Alert,
   Dimensions,
 } from 'react-native';
-import { Svg, Circle, Path, Polygon, Rect } from 'react-native-svg';
 import { useFocusEffect } from '@react-navigation/native';
 import AuthService from '../services/authService';
 import { useAuth } from '../context/AuthContext';
+import CategoryIcon from './svg/CategoryIcons';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-// Simple SVG placeholder icon for categories
-const CategoryIcon = ({ size = 80 }) => (
-  <Svg width={size} height={size} viewBox="0 0 100 100">
-    {/* Book/Learning icon */}
-    <Rect x="20" y="25" width="60" height="50" fill="#4CAF50" rx="4" />
-    <Rect x="25" y="30" width="50" height="40" fill="white" rx="2" />
-    <Path d="M30 40 L70 40 M30 50 L65 50 M30 60 L60 60" stroke="#4CAF50" strokeWidth="2" />
-    <Circle cx="50" cy="15" r="8" fill="#2196F3" />
-    <Path d="M46 12 L50 16 L54 12" stroke="white" strokeWidth="2" fill="none" />
-  </Svg>
-);
 
 const CategoryOverviewScreen = ({ navigation }) => {
   const [categories, setCategories] = useState([]);
@@ -96,7 +85,7 @@ const CategoryOverviewScreen = ({ navigation }) => {
       >
         <View style={styles.cardHeader}>
           <View style={styles.iconContainer}>
-            <CategoryIcon size={60} />
+            <CategoryIcon iconPath={category.iconPath} width={60} height={60} />
           </View>
           <View style={styles.categoryInfo}>
             <Text style={styles.categoryName}>{category.name}</Text>
@@ -191,7 +180,7 @@ const CategoryOverviewScreen = ({ navigation }) => {
   if (!categories || categories.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <CategoryIcon size={100} />
+        <CategoryIcon width={100} height={100} />
         <Text style={styles.emptyTitle}>No Learning Categories</Text>
         <Text style={styles.emptyText}>
           No categories are available for your target language yet.

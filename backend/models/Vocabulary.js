@@ -37,7 +37,7 @@ module.exports = (sequelize) => {
         foreignKey: 'vocabularyId',
         otherKey: 'sessionId'
       });
-      Vocabulary.hasMany(models.UserAnswer);
+      Vocabulary.hasMany(models.UserAnswer, { foreignKey: 'vocabularyId' });
     };
   
     return Vocabulary;

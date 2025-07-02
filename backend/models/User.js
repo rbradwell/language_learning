@@ -42,8 +42,8 @@ module.exports = (sequelize) => {
   });
 
   User.associate = (models) => {
-    User.hasMany(models.UserProgress);
-    User.hasMany(models.UserAnswer);
+    User.hasMany(models.UserProgress, { foreignKey: 'userId' });
+    User.hasMany(models.UserAnswer, { foreignKey: 'userId' });
   };
 
   return User;

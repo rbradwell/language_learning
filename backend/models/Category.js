@@ -21,6 +21,11 @@ module.exports = (sequelize) => {
       difficulty: {
         type: DataTypes.INTEGER,
         defaultValue: 1
+      },
+      iconPath: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Path to the category icon component'
       }
     });
   

@@ -231,6 +231,11 @@ const TrailStepsScreen = ({ route, navigation }) => {
         return;
       }
       
+      if (isCompleted) {
+        Alert.alert('Completed', 'This step has already been completed');
+        return;
+      }
+      
       if (!hasExercises) {
         Alert.alert('Coming Soon', 'This step has no exercises yet');
         return;
@@ -261,8 +266,8 @@ const TrailStepsScreen = ({ route, navigation }) => {
           },
         ]}
         onPress={handleStepPress}
-        disabled={!isUnlocked}
-        activeOpacity={isUnlocked ? 0.7 : 1}
+        disabled={!isUnlocked || isCompleted}
+        activeOpacity={isUnlocked && !isCompleted ? 0.7 : 1}
       >
         {/* Lily Pad Container - gets transformed */}
         <View style={[

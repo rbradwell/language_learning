@@ -16,6 +16,7 @@ module.exports = {
           description: 'Essential phrases for meeting people and basic social interactions',
           language: 'Mandarin',
           difficulty: 1,
+          iconPath: 'Greetings',
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -25,6 +26,7 @@ module.exports = {
           description: 'Words for family members and describing relationships',
           language: 'Mandarin',
           difficulty: 1,
+          iconPath: 'FamilyAndRelationships',
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -34,6 +36,7 @@ module.exports = {
           description: 'Restaurant vocabulary, food items, and dining experiences',
           language: 'Mandarin',
           difficulty: 2,
+          iconPath: 'FoodAndDining',
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -43,6 +46,7 @@ module.exports = {
           description: 'Shopping vocabulary, prices, and commercial transactions',
           language: 'Mandarin',
           difficulty: 2,
+          iconPath: 'ShoppingAndMoney',
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -52,6 +56,7 @@ module.exports = {
           description: 'Getting around the city, vehicles, and travel',
           language: 'Mandarin',
           difficulty: 2,
+          iconPath: 'Transport',
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -61,6 +66,7 @@ module.exports = {
           description: 'Professional and educational vocabulary',
           language: 'Mandarin',
           difficulty: 3,
+          iconPath: 'WorkAndSchool',
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -70,6 +76,7 @@ module.exports = {
           description: 'Medical vocabulary and body parts',
           language: 'Mandarin',
           difficulty: 3,
+          iconPath: 'HealthAndBody',
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -79,6 +86,7 @@ module.exports = {
           description: 'Weather conditions, seasons, and time expressions',
           language: 'Mandarin',
           difficulty: 2,
+          iconPath: 'WeatherAndTime',
           createdAt: new Date(),
           updatedAt: new Date()
         }
@@ -92,6 +100,7 @@ module.exports = {
           description: 'Essential phrases for meeting people and basic social interactions',
           language: 'Portuguese',
           difficulty: 1,
+          iconPath: 'Greetings',
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -101,6 +110,7 @@ module.exports = {
           description: 'Words for family members and describing relationships',
           language: 'Portuguese',
           difficulty: 1,
+          iconPath: 'FamilyAndRelationships',
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -110,6 +120,7 @@ module.exports = {
           description: 'Restaurant vocabulary, food items, and dining experiences',
           language: 'Portuguese',
           difficulty: 2,
+          iconPath: 'FoodAndDining',
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -119,6 +130,7 @@ module.exports = {
           description: 'Shopping vocabulary, prices, and commercial transactions',
           language: 'Portuguese',
           difficulty: 2,
+          iconPath: 'ShoppingAndMoney',
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -128,6 +140,7 @@ module.exports = {
           description: 'Getting around the city, vehicles, and travel',
           language: 'Portuguese',
           difficulty: 2,
+          iconPath: 'Transport',
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -137,6 +150,7 @@ module.exports = {
           description: 'Professional and educational vocabulary',
           language: 'Portuguese',
           difficulty: 3,
+          iconPath: 'WorkAndSchool',
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -146,6 +160,7 @@ module.exports = {
           description: 'Medical vocabulary and body parts',
           language: 'Portuguese',
           difficulty: 3,
+          iconPath: 'HealthAndBody',
           createdAt: new Date(),
           updatedAt: new Date()
         },
@@ -155,6 +170,7 @@ module.exports = {
           description: 'Weather conditions, seasons, and time expressions',
           language: 'Portuguese',
           difficulty: 2,
+          iconPath: 'WeatherAndTime',
           createdAt: new Date(),
           updatedAt: new Date()
         }

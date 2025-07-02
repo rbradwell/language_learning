@@ -34,9 +34,9 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
   const [fetchingProgressData, setFetchingProgressData] = useState(false);
   const [isShowingFeedback, setIsShowingFeedback] = useState(false);
   
-  // Animation refs - use useMemo to ensure they're only created once
-  const feedbackScale = useMemo(() => new Animated.Value(0), []);
-  const feedbackOpacity = useMemo(() => new Animated.Value(0), []);
+  // Animation refs - use useRef with proper initialization
+  const feedbackScale = useRef(new Animated.Value(0)).current;
+  const feedbackOpacity = useRef(new Animated.Value(0)).current;
   const [feedbackType, setFeedbackType] = useState(null); // 'correct' or 'incorrect'
   
   // Timer refs
@@ -277,6 +277,9 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
       return null;
     }
 
+    // Reset feedback state when generating new question
+    setIsShowingFeedback(false);
+
     const currentVocab = vocabulary[questionIndex];
     const correctAnswer = currentVocab.targetWord;
     
@@ -336,8 +339,11 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
   const submitAnswer = async (selectedAnswer) => {
     // Prevent multiple submissions during feedback animation
     if (isShowingFeedback) {
+      console.log('Tap blocked - feedback showing');
       return;
     }
+    
+    console.log('Processing tap - feedback not showing');
     
     try {
       console.log('Submitting answer:', {
@@ -457,12 +463,16 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
   };
 
   const showFeedback = (type) => {
+    console.log(`showFeedback called with type: ${type}`);
     setFeedbackType(type);
     setIsShowingFeedback(true);
     
     // Reset animation values
     feedbackScale.setValue(0);
     feedbackOpacity.setValue(0);
+    
+    // Flag to prevent duplicate resets
+    let animationCompleted = false;
     
     // Animate feedback - faster animation
     Animated.parallel([
@@ -496,8 +506,21 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
         }),
       ]).start(() => {
         // Re-enable taps after animation completes
-        setIsShowingFeedback(false);
+        if (!animationCompleted) {
+          animationCompleted = true;
+          console.log('Animation completed, resetting feedback state');
+          setIsShowingFeedback(false);
+        }
       });
+      
+      // Backup timeout to ensure feedback state is reset even if animation callback fails
+      setTimeout(() => {
+        if (!animationCompleted) {
+          animationCompleted = true;
+          console.log('Backup timeout fired, resetting feedback state');
+          setIsShowingFeedback(false);
+        }
+      }, feedbackDelay + 300);
     }, feedbackDelay);
   };
 

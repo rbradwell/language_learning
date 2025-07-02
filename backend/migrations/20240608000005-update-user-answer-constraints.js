@@ -22,15 +22,11 @@ module.exports = {
       comment: 'Additional question context for non-vocabulary exercises'
     });
 
-    // Add indexes for better query performance
+    // Add indexes for better query performance (only exerciseId, others already exist)
     await queryInterface.addIndex('UserAnswers', ['exerciseId']);
-    await queryInterface.addIndex('UserAnswers', ['sessionId']);
-    await queryInterface.addIndex('UserAnswers', ['vocabularyId']);
   },
 
   down: async (queryInterface, Sequelize) => {
-    await queryInterface.removeIndex('UserAnswers', ['vocabularyId']);
-    await queryInterface.removeIndex('UserAnswers', ['sessionId']);
     await queryInterface.removeIndex('UserAnswers', ['exerciseId']);
     await queryInterface.removeColumn('UserAnswers', 'questionData');
     

@@ -118,7 +118,18 @@ const getTrailStepsProgress = async (req, res) => {
         {
           model: TrailStep,
           as: 'trailStep',
-          attributes: ['id', 'trailId', 'stepNumber', 'passingScore']
+          attributes: ['id', 'trailId', 'stepNumber', 'passingScore'],
+          include: [
+            {
+              model: Trail,
+              include: [
+                {
+                  model: Category,
+                  where: { language: req.user.targetLanguage }
+                }
+              ]
+            }
+          ]
         }
       ]
     });
@@ -1144,6 +1155,7 @@ const getCategorySummary = async (req, res) => {
         description: category.description,
         language: category.language,
         difficulty: category.difficulty,
+        iconPath: category.iconPath,
         trailsCount: totalTrails,
         completedTrails,
         totalExercises,
