@@ -3,19 +3,22 @@ import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 const FamilyAndRelationships = ({ width = 64, height = 64, isCompleted, isUnlocked, isPartiallyCompleted, ...props }) => (
   <Svg width={width} height={height} viewBox="0 0 64 64" {...props}>
-    {/* Adults */}
-    <Circle cx="20" cy="20" r="6" fill="#4A90E2"/>
-    <Circle cx="44" cy="20" r="6" fill="#F5A623"/>
+    {/* White background */}
+    <Rect x="0" y="0" width="64" height="64" fill="white"/>
+    
+    {/* Adults - scaled up */}
+    <Circle cx="16" cy="16" r="8" fill="#4A90E2"/>
+    <Circle cx="48" cy="16" r="8" fill="#F5A623"/>
 
-    <Rect x="16" y="26" width="8" height="18" rx="2" fill="#4A90E2"/>
-    <Rect x="40" y="26" width="8" height="18" rx="2" fill="#F5A623"/>
+    <Rect x="10" y="24" width="12" height="24" rx="3" fill="#4A90E2"/>
+    <Rect x="42" y="24" width="12" height="24" rx="3" fill="#F5A623"/>
 
-    {/* Child */}
-    <Circle cx="32" cy="22" r="5" fill="#7ED321"/>
-    <Rect x="29" y="27" width="6" height="14" rx="2" fill="#7ED321"/>
+    {/* Child - scaled up */}
+    <Circle cx="32" cy="20" r="7" fill="#7ED321"/>
+    <Rect x="27" y="27" width="10" height="20" rx="3" fill="#7ED321"/>
 
-    {/* Heart between them */}
-    <Path d="M32 48 C28 44, 20 40, 24 34 C26 31, 30 32, 32 36 C34 32, 38 31, 40 34 C44 40, 36 44, 32 48 Z" fill="#E94E77"/>
+    {/* Heart between them - scaled up */}
+    <Path d="M32 58 C26 52, 14 46, 20 36 C23 31, 29 33, 32 39 C35 33, 41 31, 44 36 C50 46, 38 52, 32 58 Z" fill="#E94E77"/>
   </Svg>
 );
 

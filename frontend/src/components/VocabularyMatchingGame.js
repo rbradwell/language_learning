@@ -1,5 +1,5 @@
 // src/components/VocabularyMatchingGame.js
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -33,6 +33,16 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
   const [updatedStepData, setUpdatedStepData] = useState(null);
   const [fetchingProgressData, setFetchingProgressData] = useState(false);
   const [isShowingFeedback, setIsShowingFeedback] = useState(false);
+  const isShowingFeedbackRef = useRef(false);
+  
+  // Safe function to update feedback state
+  const updateFeedbackState = useCallback((value) => {
+    isShowingFeedbackRef.current = value;
+    // Only update React state if component is mounted and not completed
+    if (isMountedRef.current && gameState !== 'completed') {
+      setIsShowingFeedback(value);
+    }
+  }, [gameState]);
   
   // Animation refs - use useRef with proper initialization
   const feedbackScale = useRef(new Animated.Value(0)).current;
@@ -43,6 +53,8 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
   const countdownInterval = useRef(null);
   const gameTimerInterval = useRef(null);
   const exerciseRef = useRef(null);
+  const isMountedRef = useRef(true);
+  const feedbackTimeoutRef = useRef(null);
 
   useEffect(() => {
     const initializeGame = async () => {
@@ -61,8 +73,10 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
     
     return () => {
       // Cleanup
+      isMountedRef.current = false;
       if (countdownInterval.current) clearInterval(countdownInterval.current);
       if (gameTimerInterval.current) clearInterval(gameTimerInterval.current);
+      if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
       unloadSounds();
     };
   }, []);
@@ -278,7 +292,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
     }
 
     // Reset feedback state when generating new question
-    setIsShowingFeedback(false);
+    updateFeedbackState(false);
 
     const currentVocab = vocabulary[questionIndex];
     const correctAnswer = currentVocab.targetWord;
@@ -465,7 +479,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
   const showFeedback = (type) => {
     console.log(`showFeedback called with type: ${type}`);
     setFeedbackType(type);
-    setIsShowingFeedback(true);
+    updateFeedbackState(true);
     
     // Reset animation values
     feedbackScale.setValue(0);
@@ -480,12 +494,12 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
         toValue: 1,
         tension: 80,
         friction: 4,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.timing(feedbackOpacity, {
         toValue: 1,
         duration: 150,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
     
@@ -497,28 +511,29 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
           toValue: 0,
           tension: 80,
           friction: 4,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(feedbackOpacity, {
           toValue: 0,
           duration: 150,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]).start(() => {
         // Re-enable taps after animation completes
         if (!animationCompleted) {
           animationCompleted = true;
           console.log('Animation completed, resetting feedback state');
-          setIsShowingFeedback(false);
+          isShowingFeedbackRef.current = false;
+          // Don't update React state from animation callback to avoid useInsertionEffect warning
         }
       });
       
       // Backup timeout to ensure feedback state is reset even if animation callback fails
-      setTimeout(() => {
+      feedbackTimeoutRef.current = setTimeout(() => {
         if (!animationCompleted) {
           animationCompleted = true;
           console.log('Backup timeout fired, resetting feedback state');
-          setIsShowingFeedback(false);
+          updateFeedbackState(false);
         }
       }, feedbackDelay + 300);
     }, feedbackDelay);
@@ -529,6 +544,13 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
       clearInterval(gameTimerInterval.current);
     }
     
+    // Clear any pending feedback timeouts to prevent state updates
+    if (feedbackTimeoutRef.current) {
+      clearTimeout(feedbackTimeoutRef.current);
+    }
+    
+    // Reset feedback state immediately to prevent animation conflicts
+    updateFeedbackState(false);
     setGameState('completed');
     setScore(finalScore);
     
@@ -708,6 +730,21 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
   };
 
   const renderCompletion = () => {
+    // Show loading state while fetching progress data
+    if (fetchingProgressData) {
+      return (
+        <View style={styles.completionContainer}>
+          <Text style={styles.congratsTitle}>Congratulations!</Text>
+          <Text style={styles.completionTime}>Time: {formatTime(gameTimer)}</Text>
+          <Text style={styles.completionScore}>Score: {score}/{totalQuestions}</Text>
+          <View style={styles.loadingProgressContainer}>
+            <ActivityIndicator size="large" color="#007AFF" />
+            <Text style={styles.loadingProgressText}>Updating progress...</Text>
+          </View>
+        </View>
+      );
+    }
+
     // Use updated step data if available, otherwise fall back to route params
     const currentStepData = updatedStepData || route?.params?.stepData;
     const totalExercisesInStep = currentStepData?.exercises?.length || 0;
@@ -755,21 +792,12 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
         
         {nextExercise && !isStepComplete ? (
           <View style={styles.nextExerciseContainer}>
-            <Text style={styles.nextExerciseText}>
-              Would you like to start the next exercise?
-            </Text>
             <View style={styles.buttonRow}>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.secondaryButton]}
-                onPress={() => navigation.goBack()}
-              >
-                <Text style={styles.secondaryButtonText}>No, Go Back</Text>
-              </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.actionButton, styles.primaryButton]}
                 onPress={startNextExercise}
               >
-                <Text style={styles.primaryButtonText}>Yes, Continue</Text>
+                <Text style={styles.primaryButtonText}>Continue</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -783,16 +811,10 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
             ) : isStepComplete && nextStep ? (
               <View style={styles.buttonRow}>
                 <TouchableOpacity
-                  style={[styles.actionButton, styles.secondaryButton]}
-                  onPress={() => navigation.goBack()}
-                >
-                  <Text style={styles.secondaryButtonText}>Back</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
                   style={[styles.actionButton, styles.primaryButton]}
                   onPress={() => {
                     // Navigate to the next step
-                    navigation.navigate('TrailStepsScreen', {
+                    navigation.navigate('TrailSteps', {
                       trail: trail,
                       category: category,
                       highlightStepId: nextStep.id

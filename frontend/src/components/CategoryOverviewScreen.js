@@ -319,9 +319,9 @@ const styles = StyleSheet.create({
   },
   iconContainer: {
     marginRight: 15,
-    backgroundColor: '#f0f8ff',
+    backgroundColor: 'transparent',
     borderRadius: 12,
-    padding: 10,
+    padding: 2,
   },
   categoryInfo: {
     flex: 1,
