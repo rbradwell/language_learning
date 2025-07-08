@@ -27,9 +27,50 @@ const TrailStepsScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [frogHasJumped, setFrogHasJumped] = useState(false);
   const animationInProgress = useRef(false);
+  const isMountedRef = useRef(true);
+  const animationTimeoutRef = useRef(null);
+  const stateUpdateTimeoutRef = useRef(null);
   const frogPosition = useRef(new Animated.ValueXY()).current;
   const frogOpacity = useRef(new Animated.Value(1)).current;
   const frogRotation = useRef(new Animated.Value(0)).current;
+
+  // Safe state setters to prevent updates after unmount
+  const safeSetFrogHasJumped = useCallback((value) => {
+    if (isMountedRef.current) {
+      setFrogHasJumped(value);
+    }
+  }, []);
+  
+  const safeSetCategoryData = useCallback((value) => {
+    if (isMountedRef.current) {
+      setCategoryData(value);
+    }
+  }, []);
+  
+  const safeSetLoading = useCallback((value) => {
+    if (isMountedRef.current) {
+      setLoading(value);
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      animationInProgress.current = false;
+      // Clear any pending timeouts
+      if (animationTimeoutRef.current) {
+        clearTimeout(animationTimeoutRef.current);
+      }
+      if (stateUpdateTimeoutRef.current) {
+        clearTimeout(stateUpdateTimeoutRef.current);
+      }
+      // Stop any ongoing animations
+      frogPosition.stopAnimation();
+      frogRotation.stopAnimation();
+      frogOpacity.stopAnimation();
+    };
+  }, []);
 
   useEffect(() => {
     if (category) {
@@ -84,15 +125,23 @@ const TrailStepsScreen = ({ route, navigation }) => {
         easing: Easing.out(Easing.quad),
         useNativeDriver: false,
       }),
-    ]).start(() => {
+    ]).start((finished) => {
       const endTime = Date.now();
       const duration = endTime - startTime;
-      console.log(`Animation completed! Actual duration: ${duration}ms`);
-      // Immediately switch to target lily pad when animation completes
-      setFrogHasJumped(true);
+      console.log(`Animation completed! Actual duration: ${duration}ms, finished: ${finished}`);
+      // Reset animation state but don't update React state from callback
       animationInProgress.current = false;
       // Hide the animated frog instantly
       frogOpacity.setValue(0);
+      
+      // Schedule state update on next tick to avoid insertion effect warning
+      if (finished && isMountedRef.current) {
+        stateUpdateTimeoutRef.current = setTimeout(() => {
+          safeSetFrogHasJumped(true);
+        }, 0);
+      } else {
+        console.log('Animation interrupted or component unmounted, skipping state update');
+      }
     });
   };
 
@@ -104,20 +153,20 @@ const TrailStepsScreen = ({ route, navigation }) => {
       if (data.success) {
         // Find the specific category data
         const categoryDetails = data.data.find(cat => cat.id === category.id);
-        setCategoryData(categoryDetails);
+        safeSetCategoryData(categoryDetails);
 
         // Only trigger animation if none is in progress and frog hasn't jumped yet
         console.log('Data loaded, checking animation state:', { animationInProgress: animationInProgress.current, frogHasJumped });
         
-        if (!animationInProgress.current && !frogHasJumped) {
+        if (!animationInProgress.current && !frogHasJumped && isMountedRef.current) {
           console.log('Resetting animation state and starting animation...');
           // Set animation state immediately to prevent race conditions
           animationInProgress.current = true;
-          setFrogHasJumped(false);
+          safeSetFrogHasJumped(false);
           frogOpacity.setValue(1);
           
-          setTimeout(() => {
-            if (categoryDetails && categoryDetails.trails && categoryDetails.trails[0]) {
+          animationTimeoutRef.current = setTimeout(() => {
+            if (isMountedRef.current && categoryDetails && categoryDetails.trails && categoryDetails.trails[0]) {
               const trail = categoryDetails.trails[0];
               const nextOpenStep = trail.trailSteps.find(step => {
                 const completedExercises = step.exercises?.filter(ex => ex.passed).length || 0;
@@ -152,7 +201,7 @@ const TrailStepsScreen = ({ route, navigation }) => {
       console.error('Error fetching trail steps:', error);
       Alert.alert('Error', 'Unable to connect to server');
     } finally {
-      setLoading(false);
+      safeSetLoading(false);
     }
   };
 
