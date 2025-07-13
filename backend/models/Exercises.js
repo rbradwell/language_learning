@@ -13,7 +13,7 @@ module.exports = (sequelize) => {
       allowNull: false
     },
     type: {
-      type: DataTypes.ENUM('vocabulary_matching', 'sentence_completion', 'fill_blanks'),
+      type: DataTypes.ENUM('sentence_completion', 'fill_blanks'),
       allowNull: false
     },
     content: {
@@ -36,10 +36,6 @@ module.exports = (sequelize) => {
     Exercise.hasOne(models.ExerciseSession, {
       foreignKey: 'exerciseId',
       as: 'session'
-    });
-    Exercise.hasMany(models.UserAnswer, {
-      foreignKey: 'exerciseId',
-      as: 'answers'
     });
   };
 

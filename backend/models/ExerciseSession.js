@@ -15,7 +15,7 @@ module.exports = (sequelize) => {
     exerciseId: {
       type: DataTypes.UUID,
       allowNull: false,
-      comment: 'Session is scoped to a single exercise'
+      comment: 'References either Exercises or VocabularyMatchingExercises table'
     },
     trailStepId: {
       type: DataTypes.UUID,
@@ -50,17 +50,9 @@ module.exports = (sequelize) => {
       foreignKey: 'userId',
       as: 'user'
     });
-    ExerciseSession.belongsTo(models.Exercise, {
-      foreignKey: 'exerciseId',
-      as: 'exercise'
-    });
     ExerciseSession.belongsTo(models.TrailStep, {
       foreignKey: 'trailStepId',
       as: 'trailStep'
-    });
-    ExerciseSession.hasMany(models.UserAnswer, {
-      foreignKey: 'sessionId',
-      as: 'answers'
     });
     // Only vocabulary_matching exercises use this relationship
     ExerciseSession.belongsToMany(models.Vocabulary, {

@@ -103,9 +103,9 @@ const startServer = async () => {
     await sequelize.authenticate();
     console.log('✅ Database connection established successfully.');
     
-    // Sync database (create tables if they don't exist)
-    await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
-    console.log('✅ Database synchronized successfully.');
+    // Skip sync to avoid recreating foreign key constraints during migration
+    // await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
+    console.log('✅ Database sync skipped (migration in progress).');
     
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);

@@ -40,6 +40,9 @@
       TrailStep.hasMany(models.Exercise, {
         foreignKey: 'trailStepId'
       });
+      TrailStep.hasMany(models.VocabularyMatchingExercises, {
+        foreignKey: 'trailStepId'
+      });
       TrailStep.hasMany(models.UserProgress, {
         foreignKey: 'trailStepId'
       });

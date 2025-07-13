@@ -825,14 +825,16 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
                 </TouchableOpacity>
               </View>
             ) : (
-              <TouchableOpacity
-                style={[styles.actionButton, styles.primaryButton]}
-                onPress={() => navigation.goBack()}
-              >
-                <Text style={styles.primaryButtonText}>
-                  {isStepComplete ? 'Back to Category' : 'Back to Steps'}
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.buttonRow}>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.primaryButton]}
+                  onPress={() => navigation.goBack()}
+                >
+                  <Text style={styles.primaryButtonText}>
+                    {isStepComplete ? 'Back to Category' : 'Back to Steps'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
         )}

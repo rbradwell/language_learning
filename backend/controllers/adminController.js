@@ -6,7 +6,8 @@ const {
   TrailStep, 
   Exercise, 
   ExerciseSession,
-  Vocabulary
+  Vocabulary,
+  VocabularyMatchingExercises
 } = require('../models');
 const { Op } = require('sequelize');
 
@@ -73,16 +74,16 @@ const bulkCreateVocabularyExercises = async (req, res) => {
           ]
         },
         {
-          model: Exercise,
-          required: false, // Left join to find trail steps WITHOUT exercises
+          model: VocabularyMatchingExercises,
+          required: false, // Left join to find trail steps WITHOUT vocabulary matching exercises
           attributes: ['id']
         }
       ]
     });
 
-    // Filter to only trail steps that have no exercises
+    // Filter to only trail steps that have no vocabulary matching exercises
     const trailStepsWithoutExercises = trailStepsNeedingExercises.filter(step => 
-      step.Exercises.length === 0
+      step.VocabularyMatchingExercises.length === 0
     );
 
     if (trailStepsWithoutExercises.length === 0) {
@@ -163,14 +164,11 @@ const bulkCreateVocabularyExercises = async (req, res) => {
     for (const plan of exerciseCreationPlan) {
       for (let i = 0; i < plan.exerciseGroups.length; i++) {
         const group = plan.exerciseGroups[i];
-        const exercise = await Exercise.create({
+        const exercise = await VocabularyMatchingExercises.create({
           trailStepId: plan.trailStep.id,
-          type: 'vocabulary_matching',
-          content: {
-            vocabularyIds: group.map(v => v.id),
-            instructions: 'Match the words with their translations',
-            category: plan.trailStep.category
-          },
+          vocabularyIds: group.map(v => v.id),
+          instructions: 'Match the words with their translations',
+          category: plan.trailStep.category,
           order: i + 1
         });
         createdExercises.push({
@@ -199,7 +197,7 @@ const bulkCreateVocabularyExercises = async (req, res) => {
           trailStepName: ex.trailStepName,
           categoryName: ex.categoryName,
           order: ex.order,
-          vocabularyCount: ex.content.vocabularyIds.length
+          vocabularyCount: ex.vocabularyIds.length
         }))
       }
     });

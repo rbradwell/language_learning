@@ -8,8 +8,8 @@ const {
   ExerciseSession, 
   ExerciseSessionVocabulary,
   UserProgress,
-  UserAnswer,
   Vocabulary,
+  VocabularyMatchingExercises,
   sequelize
 } = require('../models');
 const { Op } = require('sequelize');
@@ -75,6 +75,19 @@ const getTrailStepsProgress = async (req, res) => {
                       attributes: ['id', 'status', 'score', 'completedAt']
                     }
                   ]
+                },
+                {
+                  model: VocabularyMatchingExercises,
+                  required: false,
+                  include: [
+                    {
+                      model: ExerciseSession,
+                      as: 'session',
+                      where: { userId },
+                      required: false,
+                      attributes: ['id', 'status', 'score', 'completedAt']
+                    }
+                  ]
                 }
               ],
               order: [['stepNumber', 'ASC']]
@@ -102,6 +115,7 @@ const getTrailStepsProgress = async (req, res) => {
             trail.TrailSteps.forEach(step => {
               console.log(`      Step: ${step.name} (${step.stepNumber})`);
               console.log(`      - Exercises: ${step.Exercises ? step.Exercises.length : 'No Exercises property'}`);
+              console.log(`      - VocabularyMatchingExercises: ${step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.length : 'No VocabularyMatchingExercises property'}`);
             });
           }
         });
@@ -171,36 +185,56 @@ const getTrailStepsProgress = async (req, res) => {
               passingScore: step.passingScore,
               timeLimit: step.timeLimit,
               isUnlocked: isStepUnlocked,
-              exercisesCount: step.Exercises ? step.Exercises.length : 0,
-              exercises: step.Exercises ? step.Exercises.map(exercise => {
-                const session = exercise.session;
-                
-                // For vocabulary matching exercises, completion means all questions were answered correctly
-                // since users must get each question right to proceed to the next one
-                let isPassed = false;
-                if (session && session.status === 'completed') {
-                  if (exercise.type === 'vocabulary_matching') {
-                    // Vocabulary matching: if completed, user got all questions right
-                    isPassed = true;
-                  } else {
+              exercisesCount: (step.Exercises ? step.Exercises.length : 0) + (step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.length : 0),
+              hasExercises: ((step.Exercises ? step.Exercises.length : 0) + (step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.length : 0)) > 0,
+              exercises: [
+                // Regular exercises
+                ...(step.Exercises ? step.Exercises.map(exercise => {
+                  const session = exercise.session;
+                  
+                  let isPassed = false;
+                  if (session && session.status === 'completed') {
                     // Other exercise types: use percentage-based passing score
                     const sessionPercentage = Math.round((session.score / session.totalQuestions) * 100);
                     isPassed = sessionPercentage >= step.passingScore;
                   }
-                }
-                
-                return {
-                  id: exercise.id,
-                  type: exercise.type,
-                  order: exercise.order,
-                  sessionId: session ? session.id : null,
-                  exerciseStatus: session ? session.status : 'not_attempted',
-                  score: session ? session.score : null,
-                  passed: isPassed || false,
-                  completedAt: session ? session.completedAt : null,
-                  hasSession: !!exercise.session
-                };
-              }) : []
+                  
+                  return {
+                    id: exercise.id,
+                    type: exercise.type,
+                    order: exercise.order,
+                    sessionId: session ? session.id : null,
+                    exerciseStatus: session ? session.status : 'not_attempted',
+                    score: session ? session.score : null,
+                    passed: isPassed || false,
+                    completedAt: session ? session.completedAt : null,
+                    hasSession: !!exercise.session
+                  };
+                }) : []),
+                // Vocabulary matching exercises
+                ...(step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.map(exercise => {
+                  const session = exercise.session;
+                  
+                  // For vocabulary matching exercises, completion means all questions were answered correctly
+                  // since users must get each question right to proceed to the next one
+                  let isPassed = false;
+                  if (session && session.status === 'completed') {
+                    isPassed = true; // Vocabulary matching: if completed, user got all questions right
+                  }
+                  
+                  return {
+                    id: exercise.id,
+                    type: 'vocabulary_matching',
+                    order: exercise.order,
+                    sessionId: session ? session.id : null,
+                    exerciseStatus: session ? session.status : 'not_attempted',
+                    score: session ? session.score : null,
+                    passed: isPassed || false,
+                    completedAt: session ? session.completedAt : null,
+                    hasSession: !!exercise.session
+                  };
+                }) : [])
+              ]
             };
           }) : []
         };
@@ -242,8 +276,8 @@ const createExerciseSession = async (req, res) => {
     const userId = req.user.id;
     const { exerciseId, isRetry } = req.body;
 
-    // Get the exercise and verify it exists
-    const exercise = await Exercise.findByPk(exerciseId, {
+    // Get the exercise and verify it exists (check both tables)
+    let exercise = await Exercise.findByPk(exerciseId, {
       include: [
         {
           model: TrailStep,
@@ -252,6 +286,24 @@ const createExerciseSession = async (req, res) => {
         }
       ]
     });
+
+    // If not found in Exercise table, check VocabularyMatchingExercises table
+    if (!exercise) {
+      exercise = await VocabularyMatchingExercises.findByPk(exerciseId, {
+        include: [
+          {
+            model: TrailStep,
+            as: 'trailStep',
+            attributes: ['id', 'name', 'passingScore', 'timeLimit']
+          }
+        ]
+      });
+      
+      // Add type field for consistency
+      if (exercise) {
+        exercise.type = 'vocabulary_matching';
+      }
+    }
 
     if (!exercise) {
       return res.status(404).json({
@@ -316,7 +368,7 @@ const createExerciseSession = async (req, res) => {
       let vocabularyData = [];
       
       if (exercise.type === 'vocabulary_matching') {
-        const vocabularyIds = exercise.content.vocabularyIds || [];
+        const vocabularyIds = exercise.vocabularyIds || [];
         if (vocabularyIds.length > 0) {
           vocabularyData = await Vocabulary.findAll({
             where: { id: vocabularyIds },
@@ -347,8 +399,8 @@ const createExerciseSession = async (req, res) => {
           id: exercise.id,
           type: exercise.type,
           content: {
-            instructions: exercise.content.instructions || 'Match the words with their translations',
-            vocabulary: vocabularyData // Only include vocabulary data, not vocabularyIds
+            instructions: exercise.instructions || 'Match the words with their translations',
+            vocabulary: vocabularyData
           },
           trailStep: exercise.trailStep
         }
@@ -361,8 +413,7 @@ const createExerciseSession = async (req, res) => {
     let vocabularyData = [];
 
     if (exercise.type === 'vocabulary_matching') {
-      // Get vocabulary IDs from exercise content
-      const vocabularyIds = exercise.content.vocabularyIds || [];
+      const vocabularyIds = exercise.vocabularyIds || [];
       totalQuestions = vocabularyIds.length;
 
       // Get full vocabulary data
@@ -434,8 +485,8 @@ const createExerciseSession = async (req, res) => {
         id: exercise.id,
         type: exercise.type,
         content: {
-          instructions: exercise.content.instructions || 'Match the words with their translations',
-          vocabulary: vocabularyData // Only include vocabulary data, not vocabularyIds
+          instructions: exercise.instructions || 'Match the words with their translations',
+          vocabulary: vocabularyData
         },
         trailStep: exercise.trailStep
       }
@@ -483,10 +534,6 @@ const submitAnswer = async (req, res) => {
       },
       include: [
         {
-          model: Exercise,
-          as: 'exercise'
-        },
-        {
           model: TrailStep,
           as: 'trailStep'
         }
@@ -518,11 +565,8 @@ const submitAnswer = async (req, res) => {
       });
     }
 
-    // Determine what the correct answer should be based on the exercise content
-    // Priority: 1) Request body, 2) Exercise content, 3) Default
-    const direction = exerciseDirection || 
-                     session.exercise?.content?.direction || 
-                     'target_to_native';
+    // Use the exercise direction from the request or default to native_to_target
+    const direction = exerciseDirection || 'native_to_target';
     
     let correctAnswer;
     let questionWord;
@@ -544,8 +588,8 @@ const submitAnswer = async (req, res) => {
     const userAnswerNormalized = userAnswer.toLowerCase().trim();
     const isCorrect = userAnswerNormalized === correctAnswer;
 
-    // Save the answer with better error handling
-    console.log('Attempting to save UserAnswer with data:', {
+    // Log the answer for debugging (UserAnswer table was removed)
+    console.log('Answer submitted:', {
       userId,
       exerciseId: session.exerciseId,
       sessionId,
@@ -554,50 +598,6 @@ const submitAnswer = async (req, res) => {
       correctAnswer: direction === 'target_to_native' ? vocabulary.nativeWord : vocabulary.targetWord,
       isCorrect
     });
-    
-    try {
-      const savedAnswer = await UserAnswer.create({
-        userId,
-        exerciseId: session.exerciseId,
-        sessionId,
-        vocabularyId,
-        userAnswer: userAnswer.trim(),
-        correctAnswer: direction === 'target_to_native' ? vocabulary.nativeWord : vocabulary.targetWord,
-        isCorrect
-      });
-      console.log('Answer saved successfully:', savedAnswer.id);
-    } catch (answerError) {
-      console.error('=== ANSWER SAVE ERROR ===');
-      console.error('Error saving answer:', answerError);
-      console.error('Answer error details:', answerError.message);
-      console.error('Answer error name:', answerError.name);
-      console.error('Answer error code:', answerError.code);
-      console.error('Answer error constraint:', answerError.constraint);
-      if (answerError.errors) {
-        console.error('Answer validation errors:', answerError.errors.map(e => ({ field: e.path, message: e.message, value: e.value, type: e.type })));
-      }
-      if (answerError.sql) {
-        console.error('SQL that failed:', answerError.sql);
-      }
-      console.error('=== END ANSWER SAVE ERROR ===');
-      
-      // If it's a constraint violation, the session might be corrupted
-      if (answerError.name === 'SequelizeUniqueConstraintError' || 
-          answerError.name === 'SequelizeForeignKeyConstraintError' ||
-          answerError.message.includes('constraint') ||
-          answerError.message.includes('violates')) {
-        console.error('Database constraint error detected - session may be corrupted');
-        return res.status(500).json({
-          success: false,
-          message: 'Database constraint error - please restart the exercise',
-          error: 'CONSTRAINT_ERROR',
-          shouldRestart: true
-        });
-      }
-      
-      // For other errors, continue but log them
-      console.log('Non-constraint error - continuing...');
-    }
 
     // Update session score
     if (isCorrect) {
@@ -606,29 +606,11 @@ const submitAnswer = async (req, res) => {
       await session.reload();
     }
 
-    // Check if all questions are answered correctly
-    // For vocabulary matching, we need one correct answer per unique vocabulary item
-    let uniqueCorrectVocabulary = 0;
-    try {
-      // Count distinct vocabulary IDs that have been answered correctly
-      const result = await UserAnswer.findAll({
-        where: { 
-          sessionId,
-          isCorrect: true
-        },
-        attributes: [[sequelize.fn('COUNT', sequelize.fn('DISTINCT', sequelize.col('vocabularyId'))), 'uniqueCount']],
-        raw: true
-      });
-      uniqueCorrectVocabulary = parseInt(result[0]?.uniqueCount || 0);
-      console.log('Unique correct vocabulary count:', uniqueCorrectVocabulary, 'Total needed:', session.totalQuestions);
-    } catch (countError) {
-      console.error('Error counting unique correct vocabulary:', countError);
-      // If we can't count, assume session is not complete
-      uniqueCorrectVocabulary = 0;
-    }
-
+    // For vocabulary matching, complete the session when the user gets an answer right
+    // Since we no longer track individual answers in UserAnswer table, 
+    // we'll use the session score to determine completion
     let sessionComplete = false;
-    if (uniqueCorrectVocabulary >= session.totalQuestions) {
+    if (session.score >= session.totalQuestions) {
       // Complete the session
       await session.update({
         status: 'completed',
@@ -640,10 +622,16 @@ const submitAnswer = async (req, res) => {
       const finalScore = Math.round((session.score / session.totalQuestions) * 100);
 
       // Check if ALL exercises in this trail step have been completed
-      // Get all exercises in this trail step
-      const allExercisesInStep = await Exercise.findAll({
+      // Get all exercises in this trail step (both regular and vocabulary matching)
+      const regularExercises = await Exercise.findAll({
         where: { trailStepId: session.trailStepId }
       });
+      
+      const vocabExercises = await VocabularyMatchingExercises.findAll({
+        where: { trailStepId: session.trailStepId }
+      });
+      
+      const allExercisesInStep = [...regularExercises, ...vocabExercises];
 
       // Get all completed sessions for this user in this trail step
       const completedSessions = await ExerciseSession.findAll({
@@ -651,11 +639,7 @@ const submitAnswer = async (req, res) => {
           userId,
           trailStepId: session.trailStepId,
           status: 'completed'
-        },
-        include: [{
-          model: Exercise,
-          as: 'exercise'
-        }]
+        }
       });
 
       // Get the trail step to access passingScore
@@ -664,7 +648,10 @@ const submitAnswer = async (req, res) => {
 
       // Check if all exercises have passing scores
       const exercisesWithPassingScores = completedSessions.filter(sessionRecord => {
-        if (sessionRecord.exercise.type === 'vocabulary_matching') {
+        // Find if this session's exercise is a vocabulary matching exercise
+        const isVocabExercise = vocabExercises.some(ve => ve.id === sessionRecord.exerciseId);
+        
+        if (isVocabExercise) {
           // Vocabulary matching: if session is completed, it's automatically passed
           return true;
         } else {
@@ -1059,6 +1046,19 @@ const getCategorySummary = async (req, res) => {
                       attributes: ['id', 'status', 'score', 'completedAt', 'totalQuestions']
                     }
                   ]
+                },
+                {
+                  model: VocabularyMatchingExercises,
+                  required: false,
+                  include: [
+                    {
+                      model: ExerciseSession,
+                      as: 'session',
+                      where: { userId },
+                      required: false,
+                      attributes: ['id', 'status', 'score', 'completedAt', 'totalQuestions']
+                    }
+                  ]
                 }
               ]
             }
@@ -1124,6 +1124,7 @@ const getCategorySummary = async (req, res) => {
           // Count exercises
           if (trail.TrailSteps) {
             trail.TrailSteps.forEach(step => {
+              // Count regular exercises
               if (step.Exercises) {
                 step.Exercises.forEach(exercise => {
                   totalExercises++;
@@ -1140,6 +1141,21 @@ const getCategorySummary = async (req, res) => {
                       } else {
                         failedExercises++;
                       }
+                    }
+                  }
+                });
+              }
+              
+              // Count vocabulary matching exercises
+              if (step.VocabularyMatchingExercises) {
+                step.VocabularyMatchingExercises.forEach(exercise => {
+                  totalExercises++;
+                  
+                  if (exercise.session) {
+                    const session = exercise.session;
+                    if (session.status === 'completed') {
+                      // Vocabulary matching exercises are automatically passed if completed
+                      passedExercises++;
                     }
                   }
                 });

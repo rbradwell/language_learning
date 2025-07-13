@@ -33,6 +33,8 @@ module.exports = (sequelize) => {
       type: DataTypes.INTEGER,
       defaultValue: 1
     }
+  }, {
+    tableName: 'UserProgresses'
   });
 
   UserProgress.associate = (models) => {
