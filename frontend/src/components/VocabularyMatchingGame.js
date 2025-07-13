@@ -503,8 +503,8 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
       }),
     ]).start();
     
-    // Hide feedback after delay - faster feedback
-    const feedbackDelay = type === 'correct' ? 800 : 600;
+    // Hide feedback after delay - faster feedback for incorrect answers
+    const feedbackDelay = type === 'correct' ? 800 : 300;
     setTimeout(() => {
       Animated.parallel([
         Animated.spring(feedbackScale, {
