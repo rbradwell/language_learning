@@ -103,11 +103,11 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
   const playSound = async (type) => {
     try {
       if (type === 'correct') {
-        // For correct answers, use a short vibration
-        Vibration.vibrate(100);
+        // For correct answers, no vibration - smooth success
+        // Visual feedback only
       } else if (type === 'incorrect') {
-        // For incorrect answers, use a longer vibration pattern
-        Vibration.vibrate([0, 200, 100, 200]);
+        // For incorrect answers, single firm vibration to indicate error
+        Vibration.vibrate(200);
       }
     } catch (error) {
       console.log('Error playing sound:', error);
