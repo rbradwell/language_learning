@@ -302,19 +302,12 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
       .filter((_, index) => index !== questionIndex)
       .filter(v => v.targetWord !== correctAnswer); // Ensure no duplicates
     
-    // Randomly select 3 distractors (we need 4 total options: 1 correct + 3 distractors)
+    // Randomly select distractors from available vocabulary (backend ensures enough are provided)
     const shuffledDistractors = [...otherVocabItems].sort(() => Math.random() - 0.5);
+    // Take up to 3 distractors for a 4-option multiple choice question
     const distractorItems = shuffledDistractors.slice(0, 3);
     
-    // Only add placeholders if we don't have enough vocabulary items for 3 distractors
-    while (distractorItems.length < 3) {
-      distractorItems.push({ 
-        targetWord: `Option ${distractorItems.length + 1}`, 
-        pronunciation: '' 
-      });
-    }
-    
-    // Create options array with pronunciation: correct answer + 3 distractors, then shuffle
+    // Create options array with pronunciation: correct answer + distractors, then shuffle
     const allOptions = [currentVocab, ...distractorItems];
     const shuffledOptions = allOptions.sort(() => Math.random() - 0.5);
     
@@ -733,12 +726,12 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
     // Show loading state while fetching progress data
     if (fetchingProgressData) {
       return (
-        <View style={styles.completionContainer}>
+        <View style={styles.completionContent}>
           <Text style={styles.congratsTitle}>Congratulations!</Text>
           <Text style={styles.completionTime}>Time: {formatTime(gameTimer)}</Text>
           <Text style={styles.completionScore}>Score: {score}/{totalQuestions}</Text>
           <View style={styles.loadingProgressContainer}>
-            <ActivityIndicator size="large" color="#007AFF" />
+            <ActivityIndicator size="large" color="white" />
             <Text style={styles.loadingProgressText}>Updating progress...</Text>
           </View>
         </View>
@@ -754,7 +747,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
     const nextStep = currentStepData?.nextStep;
     
     return (
-      <View style={styles.completionContainer}>
+      <View style={styles.completionContent}>
         <Text style={styles.congratsTitle}>
           {isStepComplete ? 'Step Complete!' : 'Congratulations!'}
         </Text>
@@ -790,6 +783,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
           </Text>
         )}
         
+        {/* Action Buttons */}
         {nextExercise && !isStepComplete ? (
           <View style={styles.nextExerciseContainer}>
             <View style={styles.buttonRow}>
@@ -803,12 +797,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
           </View>
         ) : (
           <View style={styles.allCompleteContainer}>
-            {fetchingProgressData ? (
-              <View style={styles.loadingProgressContainer}>
-                <ActivityIndicator size="large" color="white" />
-                <Text style={styles.loadingProgressText}>Updating progress...</Text>
-              </View>
-            ) : isStepComplete && nextStep ? (
+            {isStepComplete && nextStep ? (
               <View style={styles.buttonRow}>
                 <TouchableOpacity
                   style={[styles.actionButton, styles.primaryButton]}
@@ -841,6 +830,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
       </View>
     );
   };
+
 
   // Error state
   if (hasError) {
@@ -1025,10 +1015,14 @@ const styles = StyleSheet.create({
   },
   completionContainer: {
     flex: 1,
+    backgroundColor: '#007AFF',
+  },
+  completionContent: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#007AFF',
   },
   congratsTitle: {
     fontSize: 36,

@@ -14,6 +14,10 @@ const {
 } = require('../models');
 const { Op } = require('sequelize');
 
+// Constants
+const NUM_DISTRACTORS = 3;
+const MIN_VOCABULARY_NEEDED = NUM_DISTRACTORS + 1; // 1 correct answer + distractors
+
 /**
  * Get comprehensive trail steps progress for user - DEBUG VERSION
  * Shows all categories, trails, exercises with session info and unlock status
@@ -416,7 +420,7 @@ const createExerciseSession = async (req, res) => {
       const vocabularyIds = exercise.vocabularyIds || [];
       totalQuestions = vocabularyIds.length;
 
-      // Get full vocabulary data
+      // Get vocabulary data with enough distractors
       if (vocabularyIds.length > 0) {
         vocabularyData = await Vocabulary.findAll({
           where: { id: vocabularyIds },
@@ -428,6 +432,30 @@ const createExerciseSession = async (req, res) => {
           ],
           order: [['difficulty', 'ASC'], ['id', 'ASC']]
         });
+
+        // If we don't have enough vocabulary for distractors
+        if (vocabularyData.length < MIN_VOCABULARY_NEEDED) {
+          const categoryId = vocabularyData[0]?.Category?.id;
+          if (categoryId) {
+            // Get additional vocabulary from same category
+            const additionalVocab = await Vocabulary.findAll({
+              include: [
+                {
+                  model: Category,
+                  where: { id: categoryId },
+                  attributes: ['id', 'name', 'language']
+                }
+              ],
+              where: {
+                id: { [Op.notIn]: vocabularyIds }
+              },
+              limit: MIN_VOCABULARY_NEEDED - vocabularyData.length, // Only get what we need
+              order: [['difficulty', 'ASC'], ['id', 'ASC']]
+            });
+            
+            vocabularyData = [...vocabularyData, ...additionalVocab];
+          }
+        }
       }
 
       // Create the session

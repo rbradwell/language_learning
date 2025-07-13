@@ -1,7 +1,6 @@
 // controllers/userController.js
 const { 
     UserProgress,
-    UserAnswer,
     ExerciseSession,
     ExerciseSessionVocabulary,
     User,
@@ -10,7 +9,7 @@ const {
   
   /**
    * Clear all progress data for a user
-   * Removes: UserProgress, UserAnswers, ExerciseSessions, ExerciseSessionVocabulary
+   * Removes: UserProgress, ExerciseSessions, ExerciseSessionVocabulary
    * Keeps: User account, Categories, Trails, TrailSteps, Exercises, Vocabulary
    */
   const clearUserProgress = async (req, res) => {
@@ -23,21 +22,13 @@ const {
       
       // Get counts before deletion for confirmation
       const beforeCounts = {
-        userAnswers: await UserAnswer.count({ where: { userId } }),
         userProgress: await UserProgress.count({ where: { userId } }),
         exerciseSessions: await ExerciseSession.count({ where: { userId } })
       };
       
       console.log('Before deletion counts:', beforeCounts);
       
-      // Step 1: Delete UserAnswers (references ExerciseSession, so delete first)
-      const deletedAnswers = await UserAnswer.destroy({
-        where: { userId },
-        transaction
-      });
-      console.log(`Deleted ${deletedAnswers} user answers`);
-      
-      // Step 2: Delete ExerciseSessionVocabulary entries for user's sessions
+      // Step 1: Delete ExerciseSessionVocabulary entries for user's sessions
       const userSessionIds = await ExerciseSession.findAll({
         where: { userId },
         attributes: ['id'],
@@ -54,21 +45,21 @@ const {
         console.log(`Deleted ${deletedSessionVocab} exercise session vocabulary entries`);
       }
       
-      // Step 3: Delete ExerciseSessions
+      // Step 2: Delete ExerciseSessions
       const deletedSessions = await ExerciseSession.destroy({
         where: { userId },
         transaction
       });
       console.log(`Deleted ${deletedSessions} exercise sessions`);
       
-      // Step 4: Delete UserProgress
+      // Step 3: Delete UserProgress
       const deletedProgress = await UserProgress.destroy({
         where: { userId },
         transaction
       });
       console.log(`Deleted ${deletedProgress} user progress records`);
       
-      // Step 5: Reset User's score and level
+      // Step 4: Reset User's score and level
       const user = await User.findByPk(userId, { transaction });
       await user.update({
         totalScore: 0,
@@ -81,7 +72,6 @@ const {
       
       // Get final counts for confirmation
       const afterCounts = {
-        userAnswers: await UserAnswer.count({ where: { userId } }),
         userProgress: await UserProgress.count({ where: { userId } }),
         exerciseSessions: await ExerciseSession.count({ where: { userId } })
       };
@@ -92,7 +82,6 @@ const {
         success: true,
         message: 'User progress cleared successfully',
         summary: {
-          deletedAnswers,
           deletedSessions,
           deletedProgress,
           userScoreReset: true,
@@ -128,7 +117,6 @@ const {
       
       // Get counts before deletion
       const beforeCounts = {
-        userAnswers: await UserAnswer.count(),
         userProgress: await UserProgress.count(),
         exerciseSessions: await ExerciseSession.count(),
         exerciseSessionVocab: await ExerciseSessionVocabulary.count()
@@ -136,15 +124,7 @@ const {
       
       console.log('Before deletion counts:', beforeCounts);
       
-      // Step 1: Delete all UserAnswers
-      const deletedAnswers = await UserAnswer.destroy({
-        where: {},
-        transaction,
-        truncate: true
-      });
-      console.log(`Deleted all user answers`);
-      
-      // Step 2: Delete all ExerciseSessionVocabulary
+      // Step 1: Delete all ExerciseSessionVocabulary
       const deletedSessionVocab = await ExerciseSessionVocabulary.destroy({
         where: {},
         transaction,
@@ -152,7 +132,7 @@ const {
       });
       console.log(`Deleted all exercise session vocabulary`);
       
-      // Step 3: Delete all ExerciseSessions
+      // Step 2: Delete all ExerciseSessions
       const deletedSessions = await ExerciseSession.destroy({
         where: {},
         transaction,
@@ -160,7 +140,7 @@ const {
       });
       console.log(`Deleted all exercise sessions`);
       
-      // Step 4: Delete all UserProgress
+      // Step 3: Delete all UserProgress
       const deletedProgress = await UserProgress.destroy({
         where: {},
         transaction,
@@ -168,7 +148,7 @@ const {
       });
       console.log(`Deleted all user progress`);
       
-      // Step 5: Reset all users' scores and levels
+      // Step 4: Reset all users' scores and levels
       const updatedUsers = await User.update({
         totalScore: 0,
         level: 1
@@ -183,7 +163,6 @@ const {
       
       // Get final counts
       const afterCounts = {
-        userAnswers: await UserAnswer.count(),
         userProgress: await UserProgress.count(),
         exerciseSessions: await ExerciseSession.count(),
         exerciseSessionVocab: await ExerciseSessionVocabulary.count()
@@ -195,7 +174,6 @@ const {
         success: true,
         message: 'All user progress cleared successfully',
         summary: {
-          deletedAnswers: 'ALL',
           deletedSessions: 'ALL',
           deletedProgress: 'ALL',
           deletedSessionVocab: 'ALL',
@@ -227,7 +205,6 @@ const {
       const userId = req.user.id;
       
       const stats = {
-        userAnswers: await UserAnswer.count({ where: { userId } }),
         userProgress: await UserProgress.count({ where: { userId } }),
         exerciseSessions: await ExerciseSession.count({ where: { userId } }),
         completedSteps: await UserProgress.count({ 
