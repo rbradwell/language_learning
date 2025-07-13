@@ -403,13 +403,15 @@ const TrailStepsScreen = ({ route, navigation }) => {
 
     // Calculate progress information
     const completedSteps = trail.trailSteps.filter(step => {
-      const completedExercises = step.exercises.filter(ex => ex.passed).length;
-      return completedExercises === step.exercises.length && step.exercises.length > 0;
+      const completedExercises = step.exercises?.filter(ex => ex.passed).length || 0;
+      const totalExercises = step.exercisesCount || 0;
+      return completedExercises === totalExercises && totalExercises > 0;
     }).length;
     
     const nextOpenStep = trail.trailSteps.find(step => {
-      const completedExercises = step.exercises.filter(ex => ex.passed).length;
-      return step.isUnlocked && (completedExercises < step.exercises.length || step.exercises.length === 0);
+      const completedExercises = step.exercises?.filter(ex => ex.passed).length || 0;
+      const totalExercises = step.exercisesCount || 0;
+      return step.isUnlocked && (completedExercises < totalExercises || totalExercises === 0);
     });
 
     // Starting lily pad position (bottom center)

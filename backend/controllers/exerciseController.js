@@ -4,7 +4,6 @@ const {
   Category, 
   Trail, 
   TrailStep, 
-  Exercise, 
   ExerciseSession, 
   ExerciseSessionVocabulary,
   UserProgress,
@@ -49,9 +48,9 @@ const getTrailStepsProgress = async (req, res) => {
     const allTrailSteps = await TrailStep.findAll();
     console.log('All trail steps in database:', allTrailSteps.length);
 
-    // Step 5: Check exercises
-    const allExercises = await Exercise.findAll();
-    console.log('All exercises in database:', allExercises.length);
+    // Step 5: Check vocabulary matching exercises
+    const allVocabExercises = await VocabularyMatchingExercises.findAll();
+    console.log('All vocabulary matching exercises in database:', allVocabExercises.length);
 
     // Step 6: Try the full query with debug info
     const categories = await Category.findAll({
@@ -67,19 +66,6 @@ const getTrailStepsProgress = async (req, res) => {
               model: TrailStep,
               required: false, // Changed to false for debugging
               include: [
-                {
-                  model: Exercise,
-                  required: false, // Changed to false for debugging
-                  include: [
-                    {
-                      model: ExerciseSession,
-                      as: 'session',
-                      where: { userId },
-                      required: false,
-                      attributes: ['id', 'status', 'score', 'completedAt']
-                    }
-                  ]
-                },
                 {
                   model: VocabularyMatchingExercises,
                   required: false,
@@ -118,7 +104,6 @@ const getTrailStepsProgress = async (req, res) => {
           if (trail.TrailSteps) {
             trail.TrailSteps.forEach(step => {
               console.log(`      Step: ${step.name} (${step.stepNumber})`);
-              console.log(`      - Exercises: ${step.Exercises ? step.Exercises.length : 'No Exercises property'}`);
               console.log(`      - VocabularyMatchingExercises: ${step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.length : 'No VocabularyMatchingExercises property'}`);
             });
           }
@@ -189,32 +174,9 @@ const getTrailStepsProgress = async (req, res) => {
               passingScore: step.passingScore,
               timeLimit: step.timeLimit,
               isUnlocked: isStepUnlocked,
-              exercisesCount: (step.Exercises ? step.Exercises.length : 0) + (step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.length : 0),
-              hasExercises: ((step.Exercises ? step.Exercises.length : 0) + (step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.length : 0)) > 0,
+              exercisesCount: (step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.length : 0),
+              hasExercises: (step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.length : 0) > 0,
               exercises: [
-                // Regular exercises
-                ...(step.Exercises ? step.Exercises.map(exercise => {
-                  const session = exercise.session;
-                  
-                  let isPassed = false;
-                  if (session && session.status === 'completed') {
-                    // Other exercise types: use percentage-based passing score
-                    const sessionPercentage = Math.round((session.score / session.totalQuestions) * 100);
-                    isPassed = sessionPercentage >= step.passingScore;
-                  }
-                  
-                  return {
-                    id: exercise.id,
-                    type: exercise.type,
-                    order: exercise.order,
-                    sessionId: session ? session.id : null,
-                    exerciseStatus: session ? session.status : 'not_attempted',
-                    score: session ? session.score : null,
-                    passed: isPassed || false,
-                    completedAt: session ? session.completedAt : null,
-                    hasSession: !!exercise.session
-                  };
-                }) : []),
                 // Vocabulary matching exercises
                 ...(step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.map(exercise => {
                   const session = exercise.session;
@@ -280,8 +242,8 @@ const createExerciseSession = async (req, res) => {
     const userId = req.user.id;
     const { exerciseId, isRetry } = req.body;
 
-    // Get the exercise and verify it exists (check both tables)
-    let exercise = await Exercise.findByPk(exerciseId, {
+    // Get the exercise from VocabularyMatchingExercises table
+    const exercise = await VocabularyMatchingExercises.findByPk(exerciseId, {
       include: [
         {
           model: TrailStep,
@@ -290,23 +252,10 @@ const createExerciseSession = async (req, res) => {
         }
       ]
     });
-
-    // If not found in Exercise table, check VocabularyMatchingExercises table
-    if (!exercise) {
-      exercise = await VocabularyMatchingExercises.findByPk(exerciseId, {
-        include: [
-          {
-            model: TrailStep,
-            as: 'trailStep',
-            attributes: ['id', 'name', 'passingScore', 'timeLimit']
-          }
-        ]
-      });
       
-      // Add type field for consistency
-      if (exercise) {
-        exercise.type = 'vocabulary_matching';
-      }
+    // Add type field for consistency
+    if (exercise) {
+      exercise.type = 'vocabulary_matching';
     }
 
     if (!exercise) {
@@ -650,16 +599,12 @@ const submitAnswer = async (req, res) => {
       const finalScore = Math.round((session.score / session.totalQuestions) * 100);
 
       // Check if ALL exercises in this trail step have been completed
-      // Get all exercises in this trail step (both regular and vocabulary matching)
-      const regularExercises = await Exercise.findAll({
-        where: { trailStepId: session.trailStepId }
-      });
-      
+      // Get all vocabulary matching exercises in this trail step
       const vocabExercises = await VocabularyMatchingExercises.findAll({
         where: { trailStepId: session.trailStepId }
       });
       
-      const allExercisesInStep = [...regularExercises, ...vocabExercises];
+      const allExercisesInStep = vocabExercises;
 
       // Get all completed sessions for this user in this trail step
       const completedSessions = await ExerciseSession.findAll({
@@ -1063,19 +1008,6 @@ const getCategorySummary = async (req, res) => {
               required: false,
               include: [
                 {
-                  model: Exercise,
-                  required: false,
-                  include: [
-                    {
-                      model: ExerciseSession,
-                      as: 'session',
-                      where: { userId },
-                      required: false,
-                      attributes: ['id', 'status', 'score', 'completedAt', 'totalQuestions']
-                    }
-                  ]
-                },
-                {
                   model: VocabularyMatchingExercises,
                   required: false,
                   include: [
@@ -1152,28 +1084,6 @@ const getCategorySummary = async (req, res) => {
           // Count exercises
           if (trail.TrailSteps) {
             trail.TrailSteps.forEach(step => {
-              // Count regular exercises
-              if (step.Exercises) {
-                step.Exercises.forEach(exercise => {
-                  totalExercises++;
-                  
-                  if (exercise.session) {
-                    const session = exercise.session;
-                    if (session.status === 'completed') {
-                      // Calculate percentage score: (session.score / totalQuestions) * 100
-                      const totalQuestions = session.totalQuestions || 1;
-                      const percentageScore = Math.round((session.score / totalQuestions) * 100);
-                      
-                      if (percentageScore >= step.passingScore) {
-                        passedExercises++;
-                      } else {
-                        failedExercises++;
-                      }
-                    }
-                  }
-                });
-              }
-              
               // Count vocabulary matching exercises
               if (step.VocabularyMatchingExercises) {
                 step.VocabularyMatchingExercises.forEach(exercise => {

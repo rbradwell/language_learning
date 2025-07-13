@@ -18,7 +18,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
   // Game states
   const [gameState, setGameState] = useState('loading'); // loading, countdown, playing, completed
   const [hasError, setHasError] = useState(false);
-  const [countdown, setCountdown] = useState(5);
+  const [countdown, setCountdown] = useState(3);
   const [gameTimer, setGameTimer] = useState(0);
   const [currentExercise, setCurrentExercise] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(null);
@@ -188,7 +188,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
   const startCountdown = () => {
     console.log('Starting countdown');
     setGameState('countdown');
-    setCountdown(5);
+    setCountdown(3);
     
     countdownInterval.current = setInterval(() => {
       setCountdown(prev => {
