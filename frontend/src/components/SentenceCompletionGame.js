@@ -481,12 +481,30 @@ const SentenceCompletionGame = ({ route, navigation }) => {
       console.log('Hidden words:', hiddenWords);
       console.log('Correct order (by position):', sortedVocab);
       console.log('User order:', userSentence);
+      console.log('Correct order JSON:', JSON.stringify(sortedVocab));
+      console.log('User order JSON:', JSON.stringify(userSentence));
+      console.log('Arrays equal?:', JSON.stringify(sortedVocab) === JSON.stringify(userSentence));
+      console.log('Length comparison - Correct:', sortedVocab.length, 'User:', userSentence.length);
+      
+      // Check each word individually
+      for (let i = 0; i < Math.max(sortedVocab.length, userSentence.length); i++) {
+        const correctWord = sortedVocab[i] || 'MISSING';
+        const userWord = userSentence[i] || 'MISSING';
+        const matches = correctWord === userWord;
+        console.log(`Position ${i}: Correct="${correctWord}" User="${userWord}" Match=${matches}`);
+      }
       
       const isCorrect = JSON.stringify(sortedVocab) === JSON.stringify(userSentence);
 
       if (isCorrect) {
-        setCompletedSentences(prev => new Set([...prev, currentSentenceIndex]));
-        setScore(prev => prev + 1);
+        setCompletedSentences(prev => {
+          const newCompleted = new Set([...prev, currentSentenceIndex]);
+          // Only increment score if this sentence wasn't already completed
+          if (!prev.has(currentSentenceIndex)) {
+            setScore(prevScore => prevScore + 1);
+          }
+          return newCompleted;
+        });
         
         // Show correct feedback animation
         setFeedbackType('correct');
@@ -506,10 +524,11 @@ const SentenceCompletionGame = ({ route, navigation }) => {
         setFeedbackType('incorrect');
         setFeedbackVisible(true);
         
-        // Reset user sentence and return words to bank after animation
+        // Reset user sentence and return words to bank, then move to next sentence
         setTimeout(() => {
           setWordBank(prev => [...prev, ...userSentence]);
           setUserSentence([]);
+          moveToNextSentence(); // Move to next sentence even if wrong
         }, 1200);
       }
     } catch (error) {
@@ -537,17 +556,17 @@ const SentenceCompletionGame = ({ route, navigation }) => {
       ]).start();
       
     } else if (incorrectSentences.length > 0) {
-      // Replay incorrect sentences
+      // Replay incorrect sentences silently
       const nextIncorrectIndex = incorrectSentences[0];
       setIncorrectSentences(prev => prev.slice(1));
       setCurrentSentenceIndex(nextIncorrectIndex);
       setupCurrentSentence(sentences[nextIncorrectIndex], exerciseData.content);
       
-      Alert.alert(
-        'Retry Time!',
-        'Let\'s practice the sentences you got wrong.',
-        [{ text: 'OK' }]
-      );
+      // Animate transition to retry sentence
+      Animated.sequence([
+        Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true })
+      ]).start();
       
     } else {
       // All sentences completed correctly
@@ -594,9 +613,38 @@ const SentenceCompletionGame = ({ route, navigation }) => {
     );
   }
 
+  // Render completion screen
+  const renderCompletion = () => {
+    return (
+      <View style={styles.completionContainer}>
+        <View style={styles.completionContent}>
+          <Text style={styles.congratsTitle}>
+            {allCorrect ? 'Perfect Score!' : 'Exercise Complete!'}
+          </Text>
+          <Text style={styles.completionScore}>
+            Score: {score}/{exerciseData?.content?.sentences?.length || 0}
+          </Text>
+          <Text style={styles.completionPercentage}>
+            {Math.round((score / (exerciseData?.content?.sentences?.length || 1)) * 100)}%
+          </Text>
+          
+          <TouchableOpacity
+            style={styles.completionButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.completionButtonText}>Back to Steps</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   const currentSentence = getCurrentSentence();
-  const progress = exerciseData?.content?.sentences ? 
-    `${currentSentenceIndex + 1} / ${exerciseData.content.sentences.length}` : '0 / 0';
+
+  // Show completion screen instead of game
+  if (showResults) {
+    return renderCompletion();
+  }
 
   return (
     <View style={styles.container}>
@@ -606,6 +654,13 @@ const SentenceCompletionGame = ({ route, navigation }) => {
         nestedScrollEnabled={false}
         renderToHardwareTextureAndroid={true}
       >
+        {/* Progress indicator */}
+        <View style={styles.progressSection}>
+          <Text style={styles.progressText}>
+            Score: {score} / {exerciseData?.content?.sentences?.length || 0}
+          </Text>
+        </View>
+
         {/* Native sentence */}
         <View style={styles.nativeSection}>
           <Text style={styles.nativeLabel}>English:</Text>
@@ -731,37 +786,6 @@ const SentenceCompletionGame = ({ route, navigation }) => {
         </View>
       </Modal>
 
-      {/* Results Modal */}
-      <Modal
-        visible={showResults}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => {}}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.resultsModal}>
-            <Text style={styles.resultsTitle}>
-              {allCorrect ? '🎉 Perfect!' : '✅ Complete!'}
-            </Text>
-            <Text style={styles.resultsScore}>
-              Final Score: {Math.round((score / (exerciseData?.content?.sentences?.length || 1)) * 100)}%
-            </Text>
-            <Text style={styles.resultsDetails}>
-              {score} out of {exerciseData?.content?.sentences?.length || 0} sentences correct
-            </Text>
-            
-            <TouchableOpacity
-              style={styles.resultsButton}
-              onPress={() => {
-                setShowResults(false);
-                navigation.goBack();
-              }}
-            >
-              <Text style={styles.resultsButtonText}>Continue</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };
@@ -788,6 +812,69 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
+  },
+  progressSection: {
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  progressText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '600',
+  },
+  completionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    padding: 20,
+  },
+  completionContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 40,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+    minWidth: '80%',
+  },
+  congratsTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  completionScore: {
+    fontSize: 24,
+    color: '#007AFF',
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  completionPercentage: {
+    fontSize: 36,
+    color: '#4CAF50',
+    fontWeight: 'bold',
+    marginBottom: 30,
+  },
+  completionButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  completionButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '600',
   },
   nativeSection: {
     backgroundColor: 'white',
@@ -1017,7 +1104,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   submitButtonActive: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#007AFF',
   },
   submitButtonDisabled: {
     backgroundColor: '#ccc',

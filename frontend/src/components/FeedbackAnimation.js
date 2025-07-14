@@ -67,7 +67,7 @@ const FeedbackAnimation = ({ visible, type, onComplete }) => {
         ]}
       >
         <Text style={styles.feedbackText}>
-          {isCorrect ? '✅ Correct!' : '❌ Try Again!'}
+          {isCorrect ? '✅ Correct!' : '❌ Incorrect!'}
         </Text>
       </Animated.View>
     </View>
