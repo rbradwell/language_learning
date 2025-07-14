@@ -9,6 +9,8 @@ const {
   UserProgress,
   Vocabulary,
   VocabularyMatchingExercises,
+  SentenceCompletionExercises,
+  Sentence,
   sequelize
 } = require('../models');
 const { Op } = require('sequelize');
@@ -68,6 +70,19 @@ const getTrailStepsProgress = async (req, res) => {
               include: [
                 {
                   model: VocabularyMatchingExercises,
+                  required: false,
+                  include: [
+                    {
+                      model: ExerciseSession,
+                      as: 'session',
+                      where: { userId },
+                      required: false,
+                      attributes: ['id', 'status', 'score', 'completedAt']
+                    }
+                  ]
+                },
+                {
+                  model: SentenceCompletionExercises,
                   required: false,
                   include: [
                     {
@@ -174,8 +189,10 @@ const getTrailStepsProgress = async (req, res) => {
               passingScore: step.passingScore,
               timeLimit: step.timeLimit,
               isUnlocked: isStepUnlocked,
-              exercisesCount: (step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.length : 0),
-              hasExercises: (step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.length : 0) > 0,
+              exercisesCount: (step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.length : 0) + 
+                              (step.SentenceCompletionExercises ? step.SentenceCompletionExercises.length : 0),
+              hasExercises: ((step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.length : 0) + 
+                           (step.SentenceCompletionExercises ? step.SentenceCompletionExercises.length : 0)) > 0,
               exercises: [
                 // Vocabulary matching exercises
                 ...(step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.map(exercise => {
@@ -192,6 +209,31 @@ const getTrailStepsProgress = async (req, res) => {
                     id: exercise.id,
                     type: 'vocabulary_matching',
                     order: exercise.order,
+                    sessionId: session ? session.id : null,
+                    exerciseStatus: session ? session.status : 'not_attempted',
+                    score: session ? session.score : null,
+                    passed: isPassed || false,
+                    completedAt: session ? session.completedAt : null,
+                    hasSession: !!exercise.session
+                  };
+                }) : []),
+                
+                // Sentence completion exercises  
+                ...(step.SentenceCompletionExercises ? step.SentenceCompletionExercises.map(exercise => {
+                  const session = exercise.session;
+                  
+                  // For sentence completion exercises, check if score meets passing score
+                  let isPassed = false;
+                  if (session && session.status === 'completed') {
+                    const sessionScore = Math.round((session.score / session.totalQuestions) * 100);
+                    isPassed = sessionScore >= step.passingScore;
+                  }
+                  
+                  return {
+                    id: exercise.id,
+                    type: 'sentence_completion',
+                    order: exercise.order,
+                    difficulty: exercise.difficulty,
                     sessionId: session ? session.id : null,
                     exerciseStatus: session ? session.status : 'not_attempted',
                     score: session ? session.score : null,
@@ -242,8 +284,8 @@ const createExerciseSession = async (req, res) => {
     const userId = req.user.id;
     const { exerciseId, isRetry } = req.body;
 
-    // Get the exercise from VocabularyMatchingExercises table
-    const exercise = await VocabularyMatchingExercises.findByPk(exerciseId, {
+    // Try to get the exercise from VocabularyMatchingExercises table first
+    let exercise = await VocabularyMatchingExercises.findByPk(exerciseId, {
       include: [
         {
           model: TrailStep,
@@ -256,6 +298,21 @@ const createExerciseSession = async (req, res) => {
     // Add type field for consistency
     if (exercise) {
       exercise.type = 'vocabulary_matching';
+    } else {
+      // Try to get from SentenceCompletionExercises table
+      exercise = await SentenceCompletionExercises.findByPk(exerciseId, {
+        include: [
+          {
+            model: TrailStep,
+            as: 'trailStep',
+            attributes: ['id', 'name', 'passingScore', 'timeLimit']
+          }
+        ]
+      });
+      
+      if (exercise) {
+        exercise.type = 'sentence_completion';
+      }
     }
 
     if (!exercise) {
@@ -316,9 +373,10 @@ const createExerciseSession = async (req, res) => {
       existingSession = null; // Force creation of new session
     }
 
-    // If there's an existing session, we need to get the vocabulary data for it too
+    // If there's an existing session, we need to get the data for it too
     if (existingSession) {
       let vocabularyData = [];
+      let sentenceData = [];
       
       if (exercise.type === 'vocabulary_matching') {
         const vocabularyIds = exercise.vocabularyIds || [];
@@ -333,6 +391,41 @@ const createExerciseSession = async (req, res) => {
             ],
             order: [['difficulty', 'ASC'], ['id', 'ASC']]
           });
+        }
+      } else if (exercise.type === 'sentence_completion') {
+        const sentenceIds = exercise.sentenceIds || [];
+        if (sentenceIds.length > 0) {
+          sentenceData = await Sentence.findAll({
+            where: { id: sentenceIds },
+            include: [
+              {
+                model: Category,
+                as: 'category',
+                attributes: ['id', 'name', 'language']
+              }
+            ],
+            order: [['difficulty', 'ASC'], ['sentenceLength', 'ASC']]
+          });
+
+          // Get vocabulary for sentences
+          const allVocabularyIds = [];
+          sentenceData.forEach(sentence => {
+            const vocabIds = sentence.vocabularyIds || [];
+            allVocabularyIds.push(...vocabIds);
+          });
+
+          const uniqueVocabularyIds = [...new Set(allVocabularyIds)];
+          if (uniqueVocabularyIds.length > 0) {
+            vocabularyData = await Vocabulary.findAll({
+              where: { id: uniqueVocabularyIds },
+              include: [
+                {
+                  model: Category,
+                  attributes: ['id', 'name', 'language']
+                }
+              ]
+            });
+          }
         }
       }
 
@@ -351,7 +444,12 @@ const createExerciseSession = async (req, res) => {
         exercise: {
           id: exercise.id,
           type: exercise.type,
-          content: {
+          content: exercise.type === 'sentence_completion' ? {
+            instructions: exercise.instructions || 'Complete each sentence by placing the missing words in the correct positions',
+            sentences: sentenceData,
+            vocabulary: vocabularyData,
+            missingWordCount: exercise.missingWordCount || 3
+          } : {
             instructions: exercise.instructions || 'Match the words with their translations',
             vocabulary: vocabularyData
           },
@@ -364,6 +462,7 @@ const createExerciseSession = async (req, res) => {
     let session;
     let totalQuestions = 0;
     let vocabularyData = [];
+    let sentenceData = [];
 
     if (exercise.type === 'vocabulary_matching') {
       const vocabularyIds = exercise.vocabularyIds || [];
@@ -434,9 +533,66 @@ const createExerciseSession = async (req, res) => {
         
         await ExerciseSessionVocabulary.bulkCreate(sessionVocabularyData);
       }
+    } else if (exercise.type === 'sentence_completion') {
+      const sentenceIds = exercise.sentenceIds || [];
+      totalQuestions = sentenceIds.length;
+
+      // Get sentence data with vocabulary information
+      if (sentenceIds.length > 0) {
+        sentenceData = await Sentence.findAll({
+          where: { id: sentenceIds },
+          include: [
+            {
+              model: Category,
+              as: 'category',
+              attributes: ['id', 'name', 'language']
+            }
+          ],
+          order: [['difficulty', 'ASC'], ['sentenceLength', 'ASC']]
+        });
+
+        // Get all vocabulary used in these sentences
+        const allVocabularyIds = [];
+        sentenceData.forEach(sentence => {
+          const vocabIds = sentence.vocabularyIds || [];
+          allVocabularyIds.push(...vocabIds);
+        });
+
+        // Remove duplicates and get vocabulary data
+        const uniqueVocabularyIds = [...new Set(allVocabularyIds)];
+        if (uniqueVocabularyIds.length > 0) {
+          vocabularyData = await Vocabulary.findAll({
+            where: { id: uniqueVocabularyIds },
+            include: [
+              {
+                model: Category,
+                attributes: ['id', 'name', 'language']
+              }
+            ]
+          });
+        }
+      }
+
+      // Create the session
+      console.log('Creating sentence completion session with data:', {
+        userId,
+        exerciseId,
+        trailStepId: exercise.trailStepId,
+        totalQuestions,
+        isRetry
+      });
+      
+      session = await ExerciseSession.create({
+        userId,
+        exerciseId,
+        trailStepId: exercise.trailStepId,
+        totalQuestions
+      });
+      
+      console.log('Sentence completion session created successfully:', session.id);
     } else {
       // For other exercise types, determine question count from content
-      totalQuestions = exercise.content.questions?.length || 1;
+      totalQuestions = exercise.content?.questions?.length || 1;
       
       session = await ExerciseSession.create({
         userId,
@@ -461,7 +617,12 @@ const createExerciseSession = async (req, res) => {
       exercise: {
         id: exercise.id,
         type: exercise.type,
-        content: {
+        content: exercise.type === 'sentence_completion' ? {
+          instructions: exercise.instructions || 'Complete each sentence by placing the missing words in the correct positions',
+          sentences: sentenceData,
+          vocabulary: vocabularyData,
+          missingWordCount: exercise.missingWordCount || 3
+        } : {
           instructions: exercise.instructions || 'Match the words with their translations',
           vocabulary: vocabularyData
         },
@@ -599,12 +760,16 @@ const submitAnswer = async (req, res) => {
       const finalScore = Math.round((session.score / session.totalQuestions) * 100);
 
       // Check if ALL exercises in this trail step have been completed
-      // Get all vocabulary matching exercises in this trail step
+      // Get all exercises in this trail step (both vocabulary matching and sentence completion)
       const vocabExercises = await VocabularyMatchingExercises.findAll({
         where: { trailStepId: session.trailStepId }
       });
       
-      const allExercisesInStep = vocabExercises;
+      const sentenceExercises = await SentenceCompletionExercises.findAll({
+        where: { trailStepId: session.trailStepId }
+      });
+      
+      const allExercisesInStep = [...vocabExercises, ...sentenceExercises];
 
       // Get all completed sessions for this user in this trail step
       const completedSessions = await ExerciseSession.findAll({
@@ -623,10 +788,15 @@ const submitAnswer = async (req, res) => {
       const exercisesWithPassingScores = completedSessions.filter(sessionRecord => {
         // Find if this session's exercise is a vocabulary matching exercise
         const isVocabExercise = vocabExercises.some(ve => ve.id === sessionRecord.exerciseId);
+        const isSentenceExercise = sentenceExercises.some(se => se.id === sessionRecord.exerciseId);
         
         if (isVocabExercise) {
           // Vocabulary matching: if session is completed, it's automatically passed
           return true;
+        } else if (isSentenceExercise) {
+          // Sentence completion: use percentage-based passing score
+          const sessionScore = Math.round((sessionRecord.score / sessionRecord.totalQuestions) * 100);
+          return sessionScore >= passingScore;
         } else {
           // Other exercise types: use percentage-based passing score
           const sessionScore = Math.round((sessionRecord.score / sessionRecord.totalQuestions) * 100);
@@ -1019,6 +1189,19 @@ const getCategorySummary = async (req, res) => {
                       attributes: ['id', 'status', 'score', 'completedAt', 'totalQuestions']
                     }
                   ]
+                },
+                {
+                  model: SentenceCompletionExercises,
+                  required: false,
+                  include: [
+                    {
+                      model: ExerciseSession,
+                      as: 'session',
+                      where: { userId },
+                      required: false,
+                      attributes: ['id', 'status', 'score', 'completedAt', 'totalQuestions']
+                    }
+                  ]
                 }
               ]
             }
@@ -1094,6 +1277,26 @@ const getCategorySummary = async (req, res) => {
                     if (session.status === 'completed') {
                       // Vocabulary matching exercises are automatically passed if completed
                       passedExercises++;
+                    }
+                  }
+                });
+              }
+              
+              // Count sentence completion exercises
+              if (step.SentenceCompletionExercises) {
+                step.SentenceCompletionExercises.forEach(exercise => {
+                  totalExercises++;
+                  
+                  if (exercise.session) {
+                    const session = exercise.session;
+                    if (session.status === 'completed') {
+                      // Sentence completion: check if score meets passing score
+                      const sessionScore = Math.round((session.score / session.totalQuestions) * 100);
+                      if (sessionScore >= step.passingScore) {
+                        passedExercises++;
+                      } else {
+                        failedExercises++;
+                      }
                     }
                   }
                 });
