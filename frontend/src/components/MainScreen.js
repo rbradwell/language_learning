@@ -5,6 +5,7 @@ import CategoryOverviewScreen from './CategoryOverviewScreen';  // New primary s
 import TrailStepsScreen from './TrailStepsScreen';              // New stepping stones screen
 import TrailProgressScreen from './TrailProgressScreen';        // Keep as legacy/backup
 import VocabularyMatchingGame from './VocabularyMatchingGame';  // Vocabulary matching game
+import SentenceCompletionGame from './SentenceCompletionGame';  // Sentence completion game
 import { useAuth } from '../context/AuthContext';
 import {
   View,
@@ -31,9 +32,47 @@ const TrailStepExercisesScreen = ({ route, navigation }) => {
   console.log('TrailStepExercisesScreen route:', route);
   console.log('TrailStepExercisesScreen params:', route?.params);
   
-  // For now, only vocabulary_matching is implemented
-  // TODO: Add other exercise types like sentence_completion, fill_in_blanks, etc.
-  return <VocabularyMatchingGame route={route} navigation={navigation} />;
+  const { trailStep } = route?.params || {};
+  
+  // Determine exercise type based on trail step type
+  const exerciseType = trailStep?.type;
+  console.log('Trail step type:', exerciseType);
+  
+  // Route to appropriate exercise component based on type
+  switch (exerciseType) {
+    case 'vocabulary_matching':
+      return <VocabularyMatchingGame route={route} navigation={navigation} />;
+    
+    case 'sentence_completion':
+      return <SentenceCompletionGame route={route} navigation={navigation} />;
+    
+    case 'fill_blanks':
+    case 'fill_in_blanks':
+      // TODO: Implement fill in the blanks component
+      Alert.alert(
+        'Coming Soon',
+        'Fill in the blanks exercises are coming soon!',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text>Fill in the blanks - Coming Soon</Text>
+        </View>
+      );
+    
+    default:
+      // Fallback for unknown exercise types
+      Alert.alert(
+        'Unsupported Exercise Type',
+        `Exercise type "${exerciseType}" is not yet supported.`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text>Unsupported exercise type: {exerciseType}</Text>
+        </View>
+      );
+  }
 };
 
 const MainScreen = ({ navigation }) => {
