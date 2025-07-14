@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import AuthService from '../services/authService';
+import FeedbackAnimation from './FeedbackAnimation';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -51,6 +52,8 @@ const SentenceCompletionGame = ({ route, navigation }) => {
   const [vocabularyModal, setVocabularyModal] = useState({ visible: false, word: null });
   const [score, setScore] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedbackVisible, setFeedbackVisible] = useState(false);
+  const [feedbackType, setFeedbackType] = useState(null);
   
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -185,24 +188,21 @@ const SentenceCompletionGame = ({ route, navigation }) => {
       return;
     }
     
-    // Randomly select words to hide from words that appear in the sentence
-    const wordsToHide = [];
-    const availableWordIndices = wordsInSentence.map((word, index) => index);
+    // Check if sentence has words array, otherwise fall back to simple approach
+    let wordsToHide = [];
     
-    // Shuffle the indices
-    for (let i = availableWordIndices.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [availableWordIndices[i], availableWordIndices[j]] = [availableWordIndices[j], availableWordIndices[i]];
-    }
-    
-    // Take the first N words to hide (up to missingWordCount)
-    const numberOfWordsToHide = Math.min(missingWordCount, wordsInSentence.length);
-    for (let i = 0; i < numberOfWordsToHide; i++) {
-      const wordIndex = availableWordIndices[i];
-      wordsToHide.push(wordsInSentence[wordIndex]);
+    if (sentence.words && Array.isArray(sentence.words)) {
+      // Use the sentence's words array directly (which already has the correct count)
+      wordsToHide = [...sentence.words.filter(word => {
+        // Only include words that are in our vocabulary list
+        return wordsInSentence.includes(word);
+      })];
+    } else {
+      // Fallback: just use the vocabulary words once each
+      wordsToHide = [...wordsInSentence];
     }
 
-    console.log('Final words to hide:', wordsToHide);
+    console.log('Final words to hide (with repeats):', wordsToHide);
 
     // Create word bank with hidden words (shuffled)
     const shuffledWordBank = [...wordsToHide];
@@ -449,15 +449,32 @@ const SentenceCompletionGame = ({ route, navigation }) => {
         return vocabulary.find(v => v.id === id);
       }).filter(Boolean);
       
-      // Sort vocabulary by their position in the target text
-      const sortedVocab = sentenceVocabulary
-        .map(vocabItem => ({
-          word: vocabItem.targetWord,
-          position: targetText.indexOf(vocabItem.targetWord)
-        }))
-        .filter(item => item.position !== -1 && hiddenWords.includes(item.word))
-        .sort((a, b) => a.position - b.position)
-        .map(item => item.word);
+      // Build correct order by finding all occurrences of vocabulary words in order
+      const sortedVocab = [];
+      let searchPosition = 0;
+      
+      // Keep finding the next vocabulary word in the target text
+      while (searchPosition < targetText.length) {
+        let nextWord = null;
+        let nextPosition = targetText.length;
+        
+        // Find which vocabulary word appears next
+        for (const vocabItem of sentenceVocabulary) {
+          const word = vocabItem.targetWord;
+          const wordPosition = targetText.indexOf(word, searchPosition);
+          if (wordPosition !== -1 && wordPosition < nextPosition) {
+            nextPosition = wordPosition;
+            nextWord = word;
+          }
+        }
+        
+        if (nextWord && hiddenWords.includes(nextWord)) {
+          sortedVocab.push(nextWord);
+          searchPosition = nextPosition + nextWord.length;
+        } else {
+          break;
+        }
+      }
       
       console.log('=== SUBMIT DEBUG ===');
       console.log('Target text:', targetText);
@@ -471,26 +488,29 @@ const SentenceCompletionGame = ({ route, navigation }) => {
         setCompletedSentences(prev => new Set([...prev, currentSentenceIndex]));
         setScore(prev => prev + 1);
         
-        Alert.alert(
-          '✅ Correct!',
-          'Well done! Moving to the next sentence.',
-          [{ text: 'Continue', onPress: moveToNextSentence }]
-        );
+        // Show correct feedback animation
+        setFeedbackType('correct');
+        setFeedbackVisible(true);
+        
+        // Move to next sentence after animation
+        setTimeout(() => {
+          moveToNextSentence();
+        }, 1200);
       } else {
         // Add to incorrect sentences for replay
         if (!incorrectSentences.includes(currentSentenceIndex)) {
           setIncorrectSentences(prev => [...prev, currentSentenceIndex]);
         }
         
-        Alert.alert(
-          '❌ Incorrect',
-          `Correct order: ${sortedVocab.join(' ')}\nYour order: ${userSentence.join(' ')}\n\nTry again!`,
-          [{ text: 'Try Again', onPress: () => {
-            // Reset user sentence and return words to bank
-            setWordBank(prev => [...prev, ...userSentence]);
-            setUserSentence([]);
-          }}]
-        );
+        // Show incorrect feedback animation
+        setFeedbackType('incorrect');
+        setFeedbackVisible(true);
+        
+        // Reset user sentence and return words to bank after animation
+        setTimeout(() => {
+          setWordBank(prev => [...prev, ...userSentence]);
+          setUserSentence([]);
+        }, 1200);
       }
     } catch (error) {
       console.error('Error submitting sentence:', error);
@@ -645,9 +665,13 @@ const SentenceCompletionGame = ({ route, navigation }) => {
                 key={`bank-${index}`}
                 word={word}
                 onPress={() => {
-                  // Add word to end of sentence
+                  // Add word to end of sentence and remove this specific instance from word bank
                   setUserSentence(prev => [...prev, word]);
-                  setWordBank(prev => prev.filter(w => w !== word));
+                  setWordBank(prev => {
+                    const newBank = [...prev];
+                    newBank.splice(index, 1); // Remove only this specific instance
+                    return newBank;
+                  });
                 }}
                 style={styles.wordBankItem}
                 textStyle={styles.wordBankText}
@@ -674,6 +698,15 @@ const SentenceCompletionGame = ({ route, navigation }) => {
         </TouchableOpacity>
       </ScrollView>
 
+      {/* Feedback Animation */}
+      <FeedbackAnimation
+        visible={feedbackVisible}
+        type={feedbackType}
+        onComplete={() => {
+          setFeedbackVisible(false);
+          setFeedbackType(null);
+        }}
+      />
 
       {/* Vocabulary Modal */}
       <Modal
