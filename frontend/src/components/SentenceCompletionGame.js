@@ -54,6 +54,7 @@ const SentenceCompletionGame = ({ route, navigation }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedbackVisible, setFeedbackVisible] = useState(false);
   const [feedbackType, setFeedbackType] = useState(null);
+  const [exerciseSession, setExerciseSession] = useState(null);
   
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -100,8 +101,11 @@ const SentenceCompletionGame = ({ route, navigation }) => {
 
       console.log('Exercise found:', sentenceExercise.id);
       
-      const response = await AuthService.authenticatedFetch('/exercises/create-session', {
+      const response = await AuthService.authenticatedFetch('/exercises/start-exercise', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           exerciseId: sentenceExercise.id,
           isRetry: false
@@ -114,6 +118,7 @@ const SentenceCompletionGame = ({ route, navigation }) => {
       if (data.success) {
         safeSetExerciseData(data.exercise);
         safeSetSessionData(data.session);
+        setExerciseSession(data.session);
         
         // Initialize game state
         const sentences = data.exercise.content.sentences || [];
@@ -494,42 +499,64 @@ const SentenceCompletionGame = ({ route, navigation }) => {
         console.log(`Position ${i}: Correct="${correctWord}" User="${userWord}" Match=${matches}`);
       }
       
-      const isCorrect = JSON.stringify(sortedVocab) === JSON.stringify(userSentence);
+      // Submit answer to backend - let server determine correctness
+      const submitResponse = await AuthService.authenticatedFetch('/exercises/submit-answer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: exerciseSession.id,
+          sentenceId: sentence.id || currentSentenceIndex, // Use sentence ID if available, fallback to index
+          userAnswer: userSentence.join(' ')
+        })
+      });
 
-      if (isCorrect) {
-        setCompletedSentences(prev => {
-          const newCompleted = new Set([...prev, currentSentenceIndex]);
-          // Only increment score if this sentence wasn't already completed
-          if (!prev.has(currentSentenceIndex)) {
-            setScore(prevScore => prevScore + 1);
+      const submitData = await submitResponse.json();
+      console.log('Submit answer response:', submitData);
+
+      if (submitData.success) {
+        // Update score from server
+        setScore(submitData.currentScore || score);
+
+        if (submitData.isCorrect) {
+          setCompletedSentences(prev => new Set([...prev, currentSentenceIndex]));
+          
+          // Show correct feedback animation
+          setFeedbackType('correct');
+          setFeedbackVisible(true);
+          
+          // Check if exercise is complete
+          if (submitData.sessionComplete) {
+            setTimeout(() => {
+              finishExercise();
+            }, 1200);
+          } else {
+            // Move to next sentence after animation
+            setTimeout(() => {
+              moveToNextSentence();
+            }, 1200);
           }
-          return newCompleted;
-        });
-        
-        // Show correct feedback animation
-        setFeedbackType('correct');
-        setFeedbackVisible(true);
-        
-        // Move to next sentence after animation
-        setTimeout(() => {
-          moveToNextSentence();
-        }, 1200);
-      } else {
-        // Add to incorrect sentences for replay
-        if (!incorrectSentences.includes(currentSentenceIndex)) {
-          setIncorrectSentences(prev => [...prev, currentSentenceIndex]);
+        } else {
+          // Add to incorrect sentences for replay
+          if (!incorrectSentences.includes(currentSentenceIndex)) {
+            setIncorrectSentences(prev => [...prev, currentSentenceIndex]);
+          }
+          
+          // Show incorrect feedback animation
+          setFeedbackType('incorrect');
+          setFeedbackVisible(true);
+          
+          // Reset user sentence and return words to bank, then move to next sentence
+          setTimeout(() => {
+            setWordBank(prev => [...prev, ...userSentence]);
+            setUserSentence([]);
+            moveToNextSentence(); // Move to next sentence even if wrong
+          }, 1200);
         }
-        
-        // Show incorrect feedback animation
-        setFeedbackType('incorrect');
-        setFeedbackVisible(true);
-        
-        // Reset user sentence and return words to bank, then move to next sentence
-        setTimeout(() => {
-          setWordBank(prev => [...prev, ...userSentence]);
-          setUserSentence([]);
-          moveToNextSentence(); // Move to next sentence even if wrong
-        }, 1200);
+      } else {
+        console.error('Failed to submit answer:', submitData);
+        Alert.alert('Error', 'Failed to submit answer. Please try again.');
       }
     } catch (error) {
       console.error('Error submitting sentence:', error);
@@ -575,9 +602,11 @@ const SentenceCompletionGame = ({ route, navigation }) => {
   };
 
   // Finish exercise
-  const finishExercise = () => {
+  const finishExercise = async () => {
+    // Session completion is automatically handled by the backend when
+    // the score reaches totalQuestions in the submitAnswer endpoint
+    
     const totalSentences = exerciseData?.content?.sentences?.length || 0;
-    const finalScore = Math.round((score / totalSentences) * 100);
     setAllCorrect(score === totalSentences);
     setShowResults(true);
     
@@ -619,21 +648,23 @@ const SentenceCompletionGame = ({ route, navigation }) => {
       <View style={styles.completionContainer}>
         <View style={styles.completionContent}>
           <Text style={styles.congratsTitle}>
-            {allCorrect ? 'Perfect Score!' : 'Exercise Complete!'}
-          </Text>
-          <Text style={styles.completionScore}>
-            Score: {score}/{exerciseData?.content?.sentences?.length || 0}
-          </Text>
-          <Text style={styles.completionPercentage}>
-            {Math.round((score / (exerciseData?.content?.sentences?.length || 1)) * 100)}%
+            Exercise Complete!
           </Text>
           
-          <TouchableOpacity
-            style={styles.completionButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.completionButtonText}>Back to Steps</Text>
-          </TouchableOpacity>
+          {/* Progress Information */}
+          <Text style={styles.progressInfo}>
+            All sentences completed in "{trailStep?.name}"!
+          </Text>
+          
+          {/* Action Buttons */}
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.primaryButton]}
+              onPress={() => navigation.goBack()}
+            >
+              <Text style={styles.primaryButtonText}>Back to Steps</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
@@ -657,7 +688,7 @@ const SentenceCompletionGame = ({ route, navigation }) => {
         {/* Progress indicator */}
         <View style={styles.progressSection}>
           <Text style={styles.progressText}>
-            Score: {score} / {exerciseData?.content?.sentences?.length || 0}
+            {score} / {exerciseData?.content?.sentences?.length || 0} correct
           </Text>
         </View>
 
@@ -824,57 +855,52 @@ const styles = StyleSheet.create({
   },
   completionContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    padding: 20,
+    backgroundColor: '#007AFF',
   },
   completionContent: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 40,
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-    minWidth: '80%',
+    padding: 40,
+    backgroundColor: '#007AFF',
   },
   congratsTitle: {
-    fontSize: 28,
+    fontSize: 36,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
+    color: 'white',
+    marginBottom: 30,
     textAlign: 'center',
   },
-  completionScore: {
-    fontSize: 24,
-    color: '#007AFF',
-    fontWeight: '600',
-    marginBottom: 10,
-  },
-  completionPercentage: {
-    fontSize: 36,
-    color: '#4CAF50',
-    fontWeight: 'bold',
+  progressInfo: {
+    fontSize: 16,
+    color: 'white',
+    textAlign: 'center',
     marginBottom: 30,
+    opacity: 0.9,
   },
-  completionButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 30,
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 20,
+    gap: 10,
+  },
+  actionButton: {
+    flex: 1,
+    paddingHorizontal: 15,
     paddingVertical: 15,
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    maxWidth: 150,
+    alignItems: 'center',
   },
-  completionButtonText: {
-    color: 'white',
+  primaryButton: {
+    backgroundColor: 'white',
+  },
+  primaryButtonText: {
+    color: '#007AFF',
     fontSize: 18,
     fontWeight: '600',
+    textAlign: 'center',
   },
   nativeSection: {
     backgroundColor: 'white',

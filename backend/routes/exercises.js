@@ -35,11 +35,12 @@ router.post('/create-session', [
 // Get exercises for a specific trail step (creates/resumes session) - COMMENTED OUT FOR NOW
 // router.get('/trail-step/:trailStepId', authMiddleware, getExercisesByTrailStep);
 
-// Submit individual answer for session-based exercises (MODIFIED - no nextStep)
+// Submit individual answer for session-based exercises (supports both vocabulary and sentence exercises)
 router.post('/submit-answer', [
   authMiddleware,
   body('sessionId').isUUID().withMessage('Valid session ID required'),
-  body('vocabularyId').isUUID().withMessage('Valid vocabulary ID required'),
+  body('vocabularyId').optional().isUUID().withMessage('Valid vocabulary ID required if provided'),
+  body('sentenceId').optional().isUUID().withMessage('Valid sentence ID required if provided'),
   body('userAnswer').notEmpty().withMessage('User answer is required'),
   body('exerciseDirection').optional().isIn(['target_to_native', 'native_to_target']).withMessage('Exercise direction must be target_to_native or native_to_target')
 ], submitAnswer);

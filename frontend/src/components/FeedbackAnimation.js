@@ -5,6 +5,7 @@ import { View, Text, StyleSheet, Animated } from 'react-native';
 const FeedbackAnimation = ({ visible, type, onComplete }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0)).current;
+  const timeoutRef = useRef(null);
 
   useEffect(() => {
     if (visible) {
@@ -12,43 +13,51 @@ const FeedbackAnimation = ({ visible, type, onComplete }) => {
       fadeAnim.setValue(0);
       scaleAnim.setValue(0);
       
-      // Animate in
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 80,
-          friction: 4,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      // Hide after delay
-      const hideTimeout = setTimeout(() => {
+      // Use setTimeout to defer animations to avoid scheduling during render
+      timeoutRef.current = setTimeout(() => {
+        // Animate in
         Animated.parallel([
           Animated.timing(fadeAnim, {
-            toValue: 0,
-            duration: 200,
+            toValue: 1,
+            duration: 150,
             useNativeDriver: true,
           }),
           Animated.spring(scaleAnim, {
-            toValue: 0,
-            tension: 100,
-            friction: 6,
+            toValue: 1,
+            tension: 80,
+            friction: 4,
             useNativeDriver: true,
           }),
         ]).start(() => {
-          if (onComplete) onComplete();
+          // Hide after delay
+          timeoutRef.current = setTimeout(() => {
+            Animated.parallel([
+              Animated.timing(fadeAnim, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+              }),
+              Animated.spring(scaleAnim, {
+                toValue: 0,
+                tension: 100,
+                friction: 6,
+                useNativeDriver: true,
+              }),
+            ]).start(() => {
+              if (onComplete) onComplete();
+            });
+          }, 1000);
         });
-      }, 1000);
-
-      return () => clearTimeout(hideTimeout);
+      }, 0);
     }
-  }, [visible, type]);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [visible, type, fadeAnim, scaleAnim, onComplete]);
 
   if (!visible) return null;
 

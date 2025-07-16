@@ -661,7 +661,7 @@ const submitAnswer = async (req, res) => {
     }
 
     const userId = req.user.id;
-    const { sessionId, vocabularyId, userAnswer, exerciseDirection } = req.body;
+    const { sessionId, vocabularyId, userAnswer, exerciseDirection, sentenceId } = req.body;
 
     // Get session and verify ownership
     const session = await ExerciseSession.findOne({
@@ -694,47 +694,135 @@ const submitAnswer = async (req, res) => {
       });
     }
 
-    // Get vocabulary and determine correct answer based on exercise direction
-    const vocabulary = await Vocabulary.findByPk(vocabularyId);
-    if (!vocabulary) {
-      return res.status(404).json({
+    let correctAnswer;
+    let isCorrect;
+    let questionData = {};
+
+    if (vocabularyId) {
+      // Handle vocabulary matching exercise
+      const vocabulary = await Vocabulary.findByPk(vocabularyId);
+      if (!vocabulary) {
+        return res.status(404).json({
+          success: false,
+          message: 'Vocabulary not found'
+        });
+      }
+
+      // Use the exercise direction from the request or default to native_to_target
+      const direction = exerciseDirection || 'native_to_target';
+      
+      let questionWord;
+      
+      if (direction === 'target_to_native') {
+        // Show foreign word (targetWord), expect native translation (nativeWord)
+        correctAnswer = vocabulary.nativeWord.toLowerCase().trim();
+        questionWord = vocabulary.targetWord;
+      } else if (direction === 'native_to_target') {
+        // Show native word (nativeWord), expect foreign translation (targetWord)  
+        correctAnswer = vocabulary.targetWord.toLowerCase().trim();
+        questionWord = vocabulary.nativeWord;
+      } else {
+        // Default fallback
+        correctAnswer = vocabulary.nativeWord.toLowerCase().trim();
+        questionWord = vocabulary.targetWord;
+      }
+      
+      const userAnswerNormalized = userAnswer.toLowerCase().trim();
+      isCorrect = userAnswerNormalized === correctAnswer;
+      
+      questionData = {
+        type: 'vocabulary',
+        vocabularyId,
+        direction,
+        questionWord,
+        correctAnswer: direction === 'target_to_native' ? vocabulary.nativeWord : vocabulary.targetWord
+      };
+
+    } else if (sentenceId) {
+      // Handle sentence completion exercise
+      const sentence = await Sentence.findByPk(sentenceId);
+      if (!sentence) {
+        return res.status(404).json({
+          success: false,
+          message: 'Sentence not found'
+        });
+      }
+
+      // Get the exercise to find which words should be in the sentence
+      const exercise = await SentenceCompletionExercises.findByPk(session.exerciseId);
+      if (!exercise) {
+        return res.status(404).json({
+          success: false,
+          message: 'Exercise not found'
+        });
+      }
+
+      // Get vocabulary for this sentence
+      const vocabularyIds = sentence.vocabularyIds || [];
+      const vocabulary = await Vocabulary.findAll({
+        where: { id: vocabularyIds }
+      });
+
+      // Build correct answer by finding all vocabulary words in the target text in order
+      const targetText = sentence.targetText;
+      const vocabularyWords = vocabulary.map(v => v.targetWord);
+      
+      const correctWords = [];
+      let searchPosition = 0;
+      
+      // Find vocabulary words in order they appear in target text
+      while (searchPosition < targetText.length) {
+        let nextWord = null;
+        let nextPosition = targetText.length;
+        
+        for (const word of vocabularyWords) {
+          const wordPosition = targetText.indexOf(word, searchPosition);
+          if (wordPosition !== -1 && wordPosition < nextPosition) {
+            nextPosition = wordPosition;
+            nextWord = word;
+          }
+        }
+        
+        if (nextWord) {
+          correctWords.push(nextWord);
+          searchPosition = nextPosition + nextWord.length;
+        } else {
+          break;
+        }
+      }
+
+      correctAnswer = correctWords.join(' ');
+      isCorrect = userAnswer.trim() === correctAnswer;
+      
+      questionData = {
+        type: 'sentence',
+        sentenceId,
+        targetText: sentence.targetText,
+        nativeText: sentence.nativeText,
+        correctAnswer
+      };
+
+    } else {
+      return res.status(400).json({
         success: false,
-        message: 'Vocabulary not found'
+        message: 'Either vocabularyId or sentenceId must be provided'
       });
     }
 
-    // Use the exercise direction from the request or default to native_to_target
-    const direction = exerciseDirection || 'native_to_target';
-    
-    let correctAnswer;
-    let questionWord;
-    
-    if (direction === 'target_to_native') {
-      // Show foreign word (targetWord), expect native translation (nativeWord)
-      correctAnswer = vocabulary.nativeWord.toLowerCase().trim();
-      questionWord = vocabulary.targetWord;
-    } else if (direction === 'native_to_target') {
-      // Show native word (nativeWord), expect foreign translation (targetWord)  
-      correctAnswer = vocabulary.targetWord.toLowerCase().trim();
-      questionWord = vocabulary.nativeWord;
-    } else {
-      // Default fallback
-      correctAnswer = vocabulary.nativeWord.toLowerCase().trim();
-      questionWord = vocabulary.targetWord;
-    }
-    
-    const userAnswerNormalized = userAnswer.toLowerCase().trim();
-    const isCorrect = userAnswerNormalized === correctAnswer;
+    // Note: Individual answers are not stored in the current system
+    // Only session-level progress is tracked in ExerciseSession table
 
-    // Log the answer for debugging (UserAnswer table was removed)
+    // Log the answer for debugging
     console.log('Answer submitted:', {
       userId,
       exerciseId: session.exerciseId,
       sessionId,
-      vocabularyId,
+      vocabularyId: vocabularyId || null,
+      sentenceId: sentenceId || null,
       userAnswer: userAnswer.trim(),
-      correctAnswer: direction === 'target_to_native' ? vocabulary.nativeWord : vocabulary.targetWord,
-      isCorrect
+      correctAnswer,
+      isCorrect,
+      type: questionData.type
     });
 
     // Update session score
@@ -851,13 +939,10 @@ const submitAnswer = async (req, res) => {
     res.json({
       success: true,
       isCorrect,
-      correctAnswer: direction === 'target_to_native' ? vocabulary.nativeWord : vocabulary.targetWord,
-      questionWord: questionWord,
-      exerciseDirection: direction,
+      correctAnswer,
       currentScore: session.score,
       totalQuestions: session.totalQuestions,
-      sessionComplete,
-      // Removed nextStep logic - frontend will call progress endpoint
+      sessionComplete
     });
 
   } catch (error) {

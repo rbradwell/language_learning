@@ -268,9 +268,10 @@ const TrailStepsScreen = ({ route, navigation }) => {
     // Show frog on target step after jump animation completes
     const allSteps = trail.trailSteps || [];
     const firstIncompleteStep = allSteps.find(step => {
-      const stepCompleted = (step.exercises?.filter(ex => ex.passed).length || 0);
+      const passedExercises = step.exercises?.filter(ex => ex.passed).length || 0;
       const stepTotal = step.exercisesCount || 0;
-      return step.isUnlocked && stepTotal > 0 && stepCompleted < stepTotal;
+      const isStepCompleted = passedExercises === stepTotal && stepTotal > 0;
+      return step.isUnlocked && stepTotal > 0 && !isStepCompleted;
     });
     const isNextStep = frogHasJumped && firstIncompleteStep?.id === trailStep.id;
 
@@ -409,9 +410,10 @@ const TrailStepsScreen = ({ route, navigation }) => {
     }).length;
     
     const nextOpenStep = trail.trailSteps.find(step => {
-      const completedExercises = step.exercises?.filter(ex => ex.passed).length || 0;
-      const totalExercises = step.exercisesCount || 0;
-      return step.isUnlocked && (completedExercises < totalExercises || totalExercises === 0);
+      const passedExercises = step.exercises?.filter(ex => ex.passed).length || 0;
+      const stepTotal = step.exercisesCount || 0;
+      const isStepCompleted = passedExercises === stepTotal && stepTotal > 0;
+      return step.isUnlocked && stepTotal > 0 && !isStepCompleted;
     });
 
     // Starting lily pad position (bottom center)
