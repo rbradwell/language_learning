@@ -10,6 +10,8 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  Animated,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { validateRegisterForm } from '../utils/validation';
@@ -26,6 +28,7 @@ const RegisterScreen = ({ navigation }) => {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showPortugueseModal, setShowPortugueseModal] = useState(false);
   const passwordInputRef = useRef(null);
 
   const handleInputChange = (field, value) => {
@@ -167,7 +170,7 @@ const RegisterScreen = ({ navigation }) => {
                   styles.languageButton,
                   formData.targetLanguage === 'Portuguese' && styles.selectedLanguage
                 ]}
-                onPress={() => handleInputChange('targetLanguage', 'Portuguese')}
+                onPress={() => setShowPortugueseModal(true)}
               >
                 <Text style={[
                   styles.languageButtonText,
@@ -199,6 +202,33 @@ const RegisterScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Portuguese Coming Soon Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showPortugueseModal}
+        onRequestClose={() => setShowPortugueseModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalEmoji}>🇵🇹</Text>
+            <Text style={styles.modalTitle}>Coming Soon!</Text>
+            <Text style={styles.modalMessage}>
+              Portuguese language support is currently in development and will be available in a future update.
+            </Text>
+            <Text style={styles.modalSubMessage}>
+              Stay tuned for more exciting languages!
+            </Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setShowPortugueseModal(false)}
+            >
+              <Text style={styles.modalButtonText}>Got it!</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -338,6 +368,69 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  modalContainer: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+    width: '100%',
+    maxWidth: 350,
+  },
+  modalEmoji: {
+    fontSize: 60,
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 10,
+  },
+  modalSubMessage: {
+    fontSize: 14,
+    color: '#007AFF',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 25,
+    fontStyle: 'italic',
+  },
+  modalButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 
