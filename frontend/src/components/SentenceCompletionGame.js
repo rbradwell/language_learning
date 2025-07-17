@@ -562,20 +562,23 @@ const SentenceCompletionGame = ({ route, navigation }) => {
       } else {
         console.error('Failed to submit answer:', submitData);
         Alert.alert('Error', 'Failed to submit answer. Please try again.');
+        // Re-enable submit button on server error
+        setIsSubmitting(false);
       }
     } catch (error) {
       console.error('Error submitting sentence:', error);
       Alert.alert('Error', 'Failed to submit answer. Please try again.');
-    } finally {
+      // Only re-enable submit button on error
       setIsSubmitting(false);
     }
   };
 
   // Move to next sentence
   const moveToNextSentence = () => {
-    // Reset feedback state
+    // Reset feedback state and re-enable submit button
     setFeedbackVisible(false);
     setFeedbackType(null);
+    setIsSubmitting(false);
     
     const sentences = exerciseData?.content?.sentences || [];
     
@@ -779,14 +782,14 @@ const SentenceCompletionGame = ({ route, navigation }) => {
         <TouchableOpacity
           style={[
             styles.submitButton,
-            isSentenceComplete() ? styles.submitButtonActive : styles.submitButtonDisabled
+            (isSentenceComplete() && !isSubmitting) ? styles.submitButtonActive : styles.submitButtonDisabled
           ]}
           onPress={submitSentence}
           disabled={!isSentenceComplete() || isSubmitting}
         >
           <Text style={[
             styles.submitButtonText,
-            isSentenceComplete() ? styles.submitButtonTextActive : styles.submitButtonTextDisabled
+            (isSentenceComplete() && !isSubmitting) ? styles.submitButtonTextActive : styles.submitButtonTextDisabled
           ]}>
             {isSubmitting ? 'Submitting...' : 'Submit Answer'}
           </Text>
