@@ -827,9 +827,13 @@ const submitAnswer = async (req, res) => {
 
     // Update session score
     if (isCorrect) {
-      await session.increment('score');
-      // Refresh session to get updated score
-      await session.reload();
+      // Only increment score if it won't exceed total questions
+      // This prevents double-counting when retrying incorrect sentences
+      if (session.score < session.totalQuestions) {
+        await session.increment('score');
+        // Refresh session to get updated score
+        await session.reload();
+      }
     }
 
     // For vocabulary matching, complete the session when the user gets an answer right
