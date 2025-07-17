@@ -61,7 +61,7 @@ const CategoryOverviewScreen = ({ navigation }) => {
   const handleLogout = async () => {
     try {
       await logout();
-      Alert.alert('Success', 'Logged out successfully');
+      // No success popup needed - logout action speaks for itself
     } catch (error) {
       Alert.alert('Error', 'Logout failed');
     }
