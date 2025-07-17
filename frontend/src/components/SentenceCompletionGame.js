@@ -700,7 +700,7 @@ const SentenceCompletionGame = ({ route, navigation }) => {
         {/* Progress indicator */}
         <View style={styles.progressSection}>
           <Text style={styles.progressText}>
-            Sentence {currentSentenceIndex + 1} of {exerciseData?.content?.sentences?.length || 0}
+            Sentence {completedSentences.size + 1} of {exerciseData?.content?.sentences?.length || 0}
           </Text>
         </View>
 
