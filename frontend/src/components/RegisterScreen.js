@@ -127,11 +127,11 @@ const RegisterScreen = ({ navigation }) => {
               autoCorrect={false}
             />
             <TouchableOpacity
-              style={styles.showPasswordButton}
+              style={styles.eyeButton}
               onPress={() => setShowPassword(!showPassword)}
             >
-              <Text style={styles.showPasswordText}>
-                {showPassword ? 'Hide' : 'Show'}
+              <Text style={styles.eyeText}>
+                {showPassword ? '🙈' : '👁️'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -247,14 +247,11 @@ const styles = StyleSheet.create({
     padding: 15,
     fontSize: 16,
   },
-  showPasswordButton: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+  eyeButton: {
+    padding: 15,
   },
-  showPasswordText: {
-    color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '500',
+  eyeText: {
+    fontSize: 18,
   },
   button: {
     backgroundColor: '#007AFF',
