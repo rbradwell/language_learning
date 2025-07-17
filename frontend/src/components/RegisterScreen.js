@@ -1,5 +1,5 @@
 // src/components/RegisterScreen.js
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ const RegisterScreen = ({ navigation }) => {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const passwordInputRef = useRef(null);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -81,7 +82,7 @@ const RegisterScreen = ({ navigation }) => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View style={styles.scrollContainer}>
         <View style={styles.formContainer}>
           <Text style={styles.title}>Create Account</Text>
 
@@ -118,6 +119,7 @@ const RegisterScreen = ({ navigation }) => {
 
           <View style={styles.passwordContainer}>
             <TextInput
+              ref={passwordInputRef}
               style={styles.passwordInput}
               placeholder="Password"
               value={formData.password}
@@ -128,7 +130,14 @@ const RegisterScreen = ({ navigation }) => {
             />
             <TouchableOpacity
               style={styles.eyeButton}
-              onPress={() => setShowPassword(!showPassword)}
+              onPress={() => {
+                setShowPassword(!showPassword);
+                // Keep keyboard open on iOS
+                setTimeout(() => {
+                  passwordInputRef.current?.focus();
+                }, 100);
+              }}
+              activeOpacity={0.7}
             >
               <Text style={styles.eyeText}>
                 {showPassword ? '🙈' : '👁️'}
@@ -189,7 +198,7 @@ const RegisterScreen = ({ navigation }) => {
             </Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 };

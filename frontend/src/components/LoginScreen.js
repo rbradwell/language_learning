@@ -1,5 +1,5 @@
 // src/components/LoginScreen.js
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ const LoginScreen = ({ navigation }) => {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const passwordInputRef = useRef(null);
 
   const { login, loading } = useAuth();
 
@@ -80,6 +81,7 @@ const LoginScreen = ({ navigation }) => {
 
         <View style={styles.passwordContainer}>
           <TextInput
+            ref={passwordInputRef}
             style={styles.passwordInput}
             placeholder="Password"
             value={password}
@@ -90,7 +92,14 @@ const LoginScreen = ({ navigation }) => {
           />
           <TouchableOpacity
             style={styles.eyeButton}
-            onPress={() => setShowPassword(!showPassword)}
+            onPress={() => {
+              setShowPassword(!showPassword);
+              // Keep keyboard open on iOS
+              setTimeout(() => {
+                passwordInputRef.current?.focus();
+              }, 100);
+            }}
+            activeOpacity={0.7}
           >
             <Text style={styles.eyeText}>
               {showPassword ? '🙈' : '👁️'}
