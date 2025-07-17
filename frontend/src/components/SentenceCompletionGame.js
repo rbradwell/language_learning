@@ -188,8 +188,7 @@ const SentenceCompletionGame = ({ route, navigation }) => {
       setWordBank([]);
       setHiddenWords([]);
       setPlacedWords({});
-      setSelectedWord(null);
-      setSelectedPlaceholder(null);
+      setUserSentence([]);
       return;
     }
     
@@ -500,6 +499,12 @@ const SentenceCompletionGame = ({ route, navigation }) => {
       }
       
       // Submit answer to backend - let server determine correctness
+      console.log('=== SESSION DEBUG ===');
+      console.log('Exercise session object:', exerciseSession);
+      console.log('Session ID being submitted:', exerciseSession?.id);
+      console.log('Sentence ID:', sentence.id);
+      console.log('Current sentence index:', currentSentenceIndex);
+      
       const submitResponse = await AuthService.authenticatedFetch('/exercises/submit-answer', {
         method: 'POST',
         headers: {
@@ -530,12 +535,12 @@ const SentenceCompletionGame = ({ route, navigation }) => {
           if (submitData.sessionComplete) {
             setTimeout(() => {
               finishExercise();
-            }, 1200);
+            }, 1400);
           } else {
             // Move to next sentence after animation
             setTimeout(() => {
               moveToNextSentence();
-            }, 1200);
+            }, 1400);
           }
         } else {
           // Add to incorrect sentences for replay
@@ -552,7 +557,7 @@ const SentenceCompletionGame = ({ route, navigation }) => {
             setWordBank(prev => [...prev, ...userSentence]);
             setUserSentence([]);
             moveToNextSentence(); // Move to next sentence even if wrong
-          }, 1200);
+          }, 1400);
         }
       } else {
         console.error('Failed to submit answer:', submitData);
@@ -568,6 +573,10 @@ const SentenceCompletionGame = ({ route, navigation }) => {
 
   // Move to next sentence
   const moveToNextSentence = () => {
+    // Reset feedback state
+    setFeedbackVisible(false);
+    setFeedbackType(null);
+    
     const sentences = exerciseData?.content?.sentences || [];
     
     if (currentSentenceIndex < sentences.length - 1) {
@@ -662,7 +671,7 @@ const SentenceCompletionGame = ({ route, navigation }) => {
               style={[styles.actionButton, styles.primaryButton]}
               onPress={() => navigation.goBack()}
             >
-              <Text style={styles.primaryButtonText}>Back to Steps</Text>
+              <Text style={styles.primaryButtonText}>Continue</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -880,7 +889,7 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     width: '100%',
     paddingHorizontal: 20,
     gap: 10,

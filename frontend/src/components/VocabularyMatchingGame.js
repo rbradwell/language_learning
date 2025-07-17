@@ -729,7 +729,6 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
         <View style={styles.completionContent}>
           <Text style={styles.congratsTitle}>Congratulations!</Text>
           <Text style={styles.completionTime}>Time: {formatTime(gameTimer)}</Text>
-          <Text style={styles.completionScore}>Score: {score}/{totalQuestions}</Text>
           <View style={styles.loadingProgressContainer}>
             <ActivityIndicator size="large" color="white" />
             <Text style={styles.loadingProgressText}>Updating progress...</Text>
@@ -753,9 +752,6 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
         </Text>
         <Text style={styles.completionTime}>
           Time: {formatTime(gameTimer)}
-        </Text>
-        <Text style={styles.completionScore}>
-          Score: {score}/{totalQuestions}
         </Text>
         
         {/* Progress Information */}

@@ -6,9 +6,12 @@ const FeedbackAnimation = ({ visible, type, onComplete }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const timeoutRef = useRef(null);
+  const isAnimatingRef = useRef(false);
 
   useEffect(() => {
-    if (visible) {
+    if (visible && !isAnimatingRef.current) {
+      isAnimatingRef.current = true;
+      
       // Reset animation values
       fadeAnim.setValue(0);
       scaleAnim.setValue(0);
@@ -44,11 +47,14 @@ const FeedbackAnimation = ({ visible, type, onComplete }) => {
                 useNativeDriver: true,
               }),
             ]).start(() => {
+              isAnimatingRef.current = false;
               if (onComplete) onComplete();
             });
           }, 1000);
         });
       }, 0);
+    } else if (!visible) {
+      isAnimatingRef.current = false;
     }
 
     return () => {

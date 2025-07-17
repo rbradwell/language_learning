@@ -534,10 +534,60 @@ module.exports = {
         console.log(`Inserted ${vocabularies.length} new vocabulary items`);
       }
 
-      // Insert sentences
-      if (sentences.length > 0) {
-        await queryInterface.bulkInsert('Sentences', sentences, { transaction });
-        console.log(`Inserted ${sentences.length} sentences`);
+      // Now query the database to get actual vocabulary IDs for sentence mapping
+      // Get category IDs for mandarin categories (just the IDs, not the full objects)
+      const categoryIds = Object.values(categories).map(cat => cat.id || cat);
+      const [insertedVocabularies] = await queryInterface.sequelize.query(
+        'SELECT v.id, v."targetWord", v."categoryId" FROM "Vocabularies" v WHERE v."categoryId" = ANY(:categoryIds)',
+        {
+          replacements: { categoryIds },
+          type: queryInterface.sequelize.QueryTypes.SELECT,
+          transaction
+        }
+      );
+
+      // Recreate sentences with proper vocabulary mapping
+      const sentencesWithVocab = [];
+      
+      for (const sentence of data.sentences) {
+        const categoryId = categories[sentence.category];
+        if (!categoryId) {
+          console.log(`Category ${sentence.category} not found, skipping sentence`);
+          continue;
+        }
+
+        const vocabularyIds = [];
+        const wordPositions = [];
+
+        // Map each word in the sentence to vocabulary IDs
+        sentence.words.forEach((word, index) => {
+          // Find corresponding vocabulary ID from inserted vocabulary
+          const vocab = insertedVocabularies.find(v => v.targetWord === word && v.categoryId === categoryId);
+          if (vocab) {
+            vocabularyIds.push(vocab.id);
+            wordPositions.push({ position: index, vocabularyId: vocab.id });
+          }
+        });
+
+        sentencesWithVocab.push({
+          id: uuidv4(),
+          categoryId,
+          nativeText: sentence.native,
+          targetText: sentence.target,
+          difficulty: sentence.difficulty,
+          vocabularyIds: JSON.stringify(vocabularyIds),
+          wordPositions: JSON.stringify(wordPositions),
+          sentenceLength: sentence.target.length,
+          language: 'mandarin',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+      }
+
+      // Insert sentences with proper vocabulary mapping
+      if (sentencesWithVocab.length > 0) {
+        await queryInterface.bulkInsert('Sentences', sentencesWithVocab, { transaction });
+        console.log(`Inserted ${sentencesWithVocab.length} sentences with vocabulary mapping`);
       }
 
       await transaction.commit();
