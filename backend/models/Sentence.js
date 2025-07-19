@@ -27,11 +27,6 @@ module.exports = (sequelize) => {
       allowNull: false,
       comment: 'Array of vocabulary IDs that make up this sentence'
     },
-    wordPositions: {
-      type: DataTypes.JSON,
-      allowNull: false,
-      comment: 'Array mapping each word position to vocabulary ID'
-    },
     difficulty: {
       type: DataTypes.ENUM('beginner', 'intermediate', 'advanced'),
       allowNull: false,

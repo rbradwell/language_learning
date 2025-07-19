@@ -10,6 +10,7 @@ const {
   Vocabulary,
   VocabularyMatchingExercises,
   SentenceCompletionExercises,
+  FillBlanksExercises,
   Sentence,
   sequelize
 } = require('../models');
@@ -75,9 +76,8 @@ const getTrailStepsProgress = async (req, res) => {
                     {
                       model: ExerciseSession,
                       as: 'session',
-                      where: { userId },
                       required: false,
-                      attributes: ['id', 'status', 'score', 'completedAt']
+                      attributes: ['id', 'status', 'score', 'completedAt', 'userId']
                     }
                   ]
                 },
@@ -88,9 +88,8 @@ const getTrailStepsProgress = async (req, res) => {
                     {
                       model: ExerciseSession,
                       as: 'session',
-                      where: { userId },
                       required: false,
-                      attributes: ['id', 'status', 'score', 'completedAt']
+                      attributes: ['id', 'status', 'score', 'completedAt', 'userId']
                     }
                   ]
                 }
@@ -196,7 +195,7 @@ const getTrailStepsProgress = async (req, res) => {
               exercises: [
                 // Vocabulary matching exercises
                 ...(step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.map(exercise => {
-                  const session = exercise.session;
+                  const session = exercise.session && exercise.session.userId === userId ? exercise.session : null;
                   
                   // For vocabulary matching exercises, completion means all questions were answered correctly
                   // since users must get each question right to proceed to the next one
@@ -214,13 +213,13 @@ const getTrailStepsProgress = async (req, res) => {
                     score: session ? session.score : null,
                     passed: isPassed || false,
                     completedAt: session ? session.completedAt : null,
-                    hasSession: !!exercise.session
+                    hasSession: !!session
                   };
                 }) : []),
                 
                 // Sentence completion exercises  
                 ...(step.SentenceCompletionExercises ? step.SentenceCompletionExercises.map(exercise => {
-                  const session = exercise.session;
+                  const session = exercise.session && exercise.session.userId === userId ? exercise.session : null;
                   
                   // For sentence completion exercises, check if score meets passing score
                   let isPassed = false;
@@ -239,7 +238,7 @@ const getTrailStepsProgress = async (req, res) => {
                     score: session ? session.score : null,
                     passed: isPassed || false,
                     completedAt: session ? session.completedAt : null,
-                    hasSession: !!exercise.session
+                    hasSession: !!session
                   };
                 }) : [])
               ]
@@ -290,7 +289,7 @@ const createExerciseSession = async (req, res) => {
         {
           model: TrailStep,
           as: 'trailStep',
-          attributes: ['id', 'name', 'passingScore', 'timeLimit']
+          attributes: ['id', 'name', 'type', 'passingScore', 'timeLimit']
         }
       ]
     });
@@ -305,13 +304,30 @@ const createExerciseSession = async (req, res) => {
           {
             model: TrailStep,
             as: 'trailStep',
-            attributes: ['id', 'name', 'passingScore', 'timeLimit']
+            attributes: ['id', 'name', 'type', 'passingScore', 'timeLimit']
           }
         ]
       });
       
       if (exercise) {
         exercise.type = 'sentence_completion';
+      }
+      
+      // If not found, try FillBlanksExercises table
+      if (!exercise) {
+        exercise = await FillBlanksExercises.findByPk(exerciseId, {
+          include: [
+            {
+              model: TrailStep,
+              as: 'trailStep',
+              attributes: ['id', 'name', 'type', 'passingScore', 'timeLimit']
+            }
+          ]
+        });
+        
+        if (exercise) {
+          exercise.type = 'fill_blanks';
+        }
       }
     }
 
@@ -392,7 +408,7 @@ const createExerciseSession = async (req, res) => {
             order: [['difficulty', 'ASC'], ['id', 'ASC']]
           });
         }
-      } else if (exercise.type === 'sentence_completion') {
+      } else if (exercise.type === 'sentence_completion' || exercise.type === 'fill_blanks') {
         const sentenceIds = exercise.sentenceIds || [];
         if (sentenceIds.length > 0) {
           sentenceData = await Sentence.findAll({
@@ -533,7 +549,7 @@ const createExerciseSession = async (req, res) => {
         
         await ExerciseSessionVocabulary.bulkCreate(sessionVocabularyData);
       }
-    } else if (exercise.type === 'sentence_completion') {
+    } else if (exercise.type === 'sentence_completion' || exercise.type === 'fill_blanks') {
       const sentenceIds = exercise.sentenceIds || [];
       totalQuestions = sentenceIds.length;
 
@@ -574,7 +590,7 @@ const createExerciseSession = async (req, res) => {
       }
 
       // Create the session
-      console.log('Creating sentence completion session with data:', {
+      console.log(`Creating ${exercise.type} session with data:`, {
         userId,
         exerciseId,
         trailStepId: exercise.trailStepId,
@@ -589,7 +605,7 @@ const createExerciseSession = async (req, res) => {
         totalQuestions
       });
       
-      console.log('Sentence completion session created successfully:', session.id);
+      console.log(`${exercise.type} session created successfully:`, session.id);
     } else {
       // For other exercise types, determine question count from content
       totalQuestions = exercise.content?.questions?.length || 1;
@@ -617,8 +633,10 @@ const createExerciseSession = async (req, res) => {
       exercise: {
         id: exercise.id,
         type: exercise.type,
-        content: exercise.type === 'sentence_completion' ? {
-          instructions: exercise.instructions || 'Complete each sentence by placing the missing words in the correct positions',
+        content: (exercise.type === 'sentence_completion' || exercise.type === 'fill_blanks') ? {
+          instructions: exercise.type === 'fill_blanks' 
+            ? 'Complete each sentence by typing missing words in pinyin. The pinyin will be converted to Chinese characters that you can use to build the sentence.'
+            : 'Complete each sentence by placing the missing words in the correct positions',
           sentences: sentenceData,
           vocabulary: vocabularyData,
           missingWordCount: exercise.missingWordCount || 3

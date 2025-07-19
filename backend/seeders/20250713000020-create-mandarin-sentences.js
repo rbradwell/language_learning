@@ -537,8 +537,8 @@ module.exports = {
       // Now query the database to get actual vocabulary IDs for sentence mapping
       // Get category IDs for mandarin categories (just the IDs, not the full objects)
       const categoryIds = Object.values(categories).map(cat => cat.id || cat);
-      const [insertedVocabularies] = await queryInterface.sequelize.query(
-        'SELECT v.id, v."targetWord", v."categoryId" FROM "Vocabularies" v WHERE v."categoryId" = ANY(:categoryIds)',
+      const insertedVocabularies = await queryInterface.sequelize.query(
+        'SELECT v.id, v."targetWord", v."categoryId" FROM "Vocabularies" v WHERE v."categoryId" = ANY(ARRAY[:categoryIds])',
         {
           replacements: { categoryIds },
           type: queryInterface.sequelize.QueryTypes.SELECT,
