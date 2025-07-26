@@ -33,9 +33,13 @@ module.exports = (sequelize) => {
       Category.hasMany(models.Vocabulary, {
         foreignKey: 'categoryId'
       });
-      // FIX: Explicitly specify the foreign key
-      Category.hasMany(models.Trail, {
-        foreignKey: 'categoryId'
+      Category.hasMany(models.TrailStep, {
+        foreignKey: 'categoryId',
+        as: 'trailSteps'
+      });
+      Category.hasMany(models.Sentence, {
+        foreignKey: 'categoryId',
+        as: 'sentences'
       });
     };
   

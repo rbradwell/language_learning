@@ -6,6 +6,7 @@ import TrailStepsScreen from './TrailStepsScreen';              // New stepping 
 import TrailProgressScreen from './TrailProgressScreen';        // Keep as legacy/backup
 import VocabularyMatchingGame from './VocabularyMatchingGame';  // Vocabulary matching game
 import SentenceCompletionGame from './SentenceCompletionGame';  // Sentence completion game
+import FillInTheBlanksGame from './FillInTheBlanksGame';        // Fill in the blanks game
 import { useAuth } from '../context/AuthContext';
 import {
   View,
@@ -48,17 +49,7 @@ const TrailStepExercisesScreen = ({ route, navigation }) => {
     
     case 'fill_blanks':
     case 'fill_in_blanks':
-      // TODO: Implement fill in the blanks component
-      Alert.alert(
-        'Coming Soon',
-        'Fill in the blanks exercises are coming soon!',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
-      return (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text>Fill in the blanks - Coming Soon</Text>
-        </View>
-      );
+      return <FillInTheBlanksGame route={route} navigation={navigation} />;
     
     default:
       // Fallback for unknown exercise types

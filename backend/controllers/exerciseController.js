@@ -2,7 +2,6 @@
 const { validationResult } = require('express-validator');
 const { 
   Category, 
-  Trail, 
   TrailStep, 
   ExerciseSession, 
   ExerciseSessionVocabulary,
@@ -43,61 +42,63 @@ const getTrailStepsProgress = async (req, res) => {
     });
     console.log('Categories for user language:', userCategories.length);
 
-    // Step 3: Check trails
-    const allTrails = await Trail.findAll();
-    console.log('All trails in database:', allTrails.length);
-
-    // Step 4: Check trail steps
+    // Step 3: Check trail steps
     const allTrailSteps = await TrailStep.findAll();
     console.log('All trail steps in database:', allTrailSteps.length);
 
-    // Step 5: Check vocabulary matching exercises
+    // Step 4: Check vocabulary matching exercises
     const allVocabExercises = await VocabularyMatchingExercises.findAll();
     console.log('All vocabulary matching exercises in database:', allVocabExercises.length);
 
-    // Step 6: Try the full query with debug info
+    // Step 5: Try the full query with debug info - now directly connecting categories to trail steps
     const categories = await Category.findAll({
       where: {
         language: req.user.targetLanguage
       },
       include: [
         {
-          model: Trail,
-          required: false, // Changed to false for debugging
+          model: TrailStep,
+          as: 'trailSteps',
+          required: false,
           include: [
             {
-              model: TrailStep,
-              required: false, // Changed to false for debugging
+              model: VocabularyMatchingExercises,
+              required: false,
               include: [
                 {
-                  model: VocabularyMatchingExercises,
+                  model: ExerciseSession,
+                  as: 'session',
                   required: false,
-                  include: [
-                    {
-                      model: ExerciseSession,
-                      as: 'session',
-                      required: false,
-                      attributes: ['id', 'status', 'score', 'completedAt', 'userId']
-                    }
-                  ]
-                },
-                {
-                  model: SentenceCompletionExercises,
-                  required: false,
-                  include: [
-                    {
-                      model: ExerciseSession,
-                      as: 'session',
-                      required: false,
-                      attributes: ['id', 'status', 'score', 'completedAt', 'userId']
-                    }
-                  ]
+                  attributes: ['id', 'status', 'score', 'completedAt', 'userId']
                 }
-              ],
-              order: [['stepNumber', 'ASC']]
+              ]
+            },
+            {
+              model: SentenceCompletionExercises,
+              required: false,
+              include: [
+                {
+                  model: ExerciseSession,
+                  as: 'session',
+                  required: false,
+                  attributes: ['id', 'status', 'score', 'completedAt', 'userId']
+                }
+              ]
+            },
+            {
+              model: FillBlanksExercises,
+              required: false,
+              include: [
+                {
+                  model: ExerciseSession,
+                  as: 'session',
+                  required: false,
+                  attributes: ['id', 'status', 'score', 'completedAt', 'userId']
+                }
+              ]
             }
           ],
-          order: [['order', 'ASC']]
+          order: [['stepNumber', 'ASC']]
         }
       ],
       order: [['difficulty', 'ASC'], ['name', 'ASC']]
@@ -108,19 +109,14 @@ const getTrailStepsProgress = async (req, res) => {
     // Log the structure we get back
     categories.forEach(category => {
       console.log(`Category: ${category.name} (${category.language})`);
-      console.log(`  - Trails: ${category.Trails ? category.Trails.length : 'No Trails property'}`);
+      console.log(`  - TrailSteps: ${category.trailSteps ? category.trailSteps.length : 'No trailSteps property'}`);
       
-      if (category.Trails) {
-        category.Trails.forEach(trail => {
-          console.log(`    Trail: ${trail.name}`);
-          console.log(`    - TrailSteps: ${trail.TrailSteps ? trail.TrailSteps.length : 'No TrailSteps property'}`);
-          
-          if (trail.TrailSteps) {
-            trail.TrailSteps.forEach(step => {
-              console.log(`      Step: ${step.name} (${step.stepNumber})`);
-              console.log(`      - VocabularyMatchingExercises: ${step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.length : 'No VocabularyMatchingExercises property'}`);
-            });
-          }
+      if (category.trailSteps) {
+        category.trailSteps.forEach(step => {
+          console.log(`    Step: ${step.name} (${step.stepNumber})`);
+          console.log(`    - VocabularyMatchingExercises: ${step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.length : 'No VocabularyMatchingExercises property'}`);
+          console.log(`    - SentenceCompletionExercises: ${step.SentenceCompletionExercises ? step.SentenceCompletionExercises.length : 'No SentenceCompletionExercises property'}`);
+          console.log(`    - FillBlanksExercises: ${step.FillBlanksExercises ? step.FillBlanksExercises.length : 'No FillBlanksExercises property'}`);
         });
       }
     });
@@ -135,50 +131,41 @@ const getTrailStepsProgress = async (req, res) => {
         {
           model: TrailStep,
           as: 'trailStep',
-          attributes: ['id', 'trailId', 'stepNumber', 'passingScore'],
+          attributes: ['id', 'categoryId', 'stepNumber', 'passingScore'],
           include: [
             {
-              model: Trail,
-              include: [
-                {
-                  model: Category,
-                  where: { language: req.user.targetLanguage }
-                }
-              ]
+              model: Category,
+              as: 'category',
+              where: { language: req.user.targetLanguage }
             }
           ]
         }
       ]
     });
 
-    // Create a map of completed trail steps by trail
-    const completedStepsByTrail = userProgress.reduce((acc, progress) => {
-      const trailId = progress.trailStep.trailId;
-      if (!acc[trailId]) acc[trailId] = [];
-      acc[trailId].push(progress.trailStep.stepNumber);
+    // Create a map of completed trail steps by category
+    const completedStepsByCategory = userProgress.reduce((acc, progress) => {
+      const categoryId = progress.trailStep.categoryId;
+      if (!acc[categoryId]) acc[categoryId] = [];
+      acc[categoryId].push(progress.trailStep.stepNumber);
       return acc;
     }, {});
 
     // Return simplified structure for debugging
-    const result = categories.map(category => ({
-      id: category.id,
-      name: category.name,
-      description: category.description,
-      language: category.language,
-      difficulty: category.difficulty,
-      trailsCount: category.Trails ? category.Trails.length : 0,
-      trails: category.Trails ? category.Trails.map(trail => {
-        const completedSteps = completedStepsByTrail[trail.id] || [];
-        const maxCompletedStep = completedSteps.length > 0 ? Math.max(...completedSteps) : 0;
-        
-        return {
-          id: trail.id,
-          name: trail.name,
-          order: trail.order,
-          isUnlocked: trail.order === 1 || maxCompletedStep > 0, // First trail or has progress
-          trailStepsCount: trail.TrailSteps ? trail.TrailSteps.length : 0,
-          trailSteps: trail.TrailSteps ? trail.TrailSteps.map(step => {
-            const isStepUnlocked = step.stepNumber === 1 || maxCompletedStep >= (step.stepNumber - 1);
+    const result = categories.map(category => {
+      const completedSteps = completedStepsByCategory[category.id] || [];
+      const maxCompletedStep = completedSteps.length > 0 ? Math.max(...completedSteps) : 0;
+      
+      return {
+        id: category.id,
+        name: category.name,
+        description: category.description,
+        language: category.language,
+        difficulty: category.difficulty,
+        iconPath: category.iconPath,
+        trailStepsCount: category.trailSteps ? category.trailSteps.length : 0,
+        trailSteps: category.trailSteps ? category.trailSteps.map(step => {
+          const isStepUnlocked = step.stepNumber === 1 || maxCompletedStep >= (step.stepNumber - 1);
             
             return {
               id: step.id,
@@ -189,9 +176,11 @@ const getTrailStepsProgress = async (req, res) => {
               timeLimit: step.timeLimit,
               isUnlocked: isStepUnlocked,
               exercisesCount: (step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.length : 0) + 
-                              (step.SentenceCompletionExercises ? step.SentenceCompletionExercises.length : 0),
+                              (step.SentenceCompletionExercises ? step.SentenceCompletionExercises.length : 0) +
+                              (step.FillBlanksExercises ? step.FillBlanksExercises.length : 0),
               hasExercises: ((step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.length : 0) + 
-                           (step.SentenceCompletionExercises ? step.SentenceCompletionExercises.length : 0)) > 0,
+                           (step.SentenceCompletionExercises ? step.SentenceCompletionExercises.length : 0) +
+                           (step.FillBlanksExercises ? step.FillBlanksExercises.length : 0)) > 0,
               exercises: [
                 // Vocabulary matching exercises
                 ...(step.VocabularyMatchingExercises ? step.VocabularyMatchingExercises.map(exercise => {
@@ -240,13 +229,37 @@ const getTrailStepsProgress = async (req, res) => {
                     completedAt: session ? session.completedAt : null,
                     hasSession: !!session
                   };
+                }) : []),
+                
+                // Fill blanks exercises  
+                ...(step.FillBlanksExercises ? step.FillBlanksExercises.map(exercise => {
+                  const session = exercise.session && exercise.session.userId === userId ? exercise.session : null;
+                  
+                  // For fill blanks exercises, check if score meets passing score
+                  let isPassed = false;
+                  if (session && session.status === 'completed') {
+                    const sessionScore = Math.round((session.score / session.totalQuestions) * 100);
+                    isPassed = sessionScore >= step.passingScore;
+                  }
+                  
+                  return {
+                    id: exercise.id,
+                    type: 'fill_blanks',
+                    order: exercise.order,
+                    difficulty: exercise.difficulty,
+                    sessionId: session ? session.id : null,
+                    exerciseStatus: session ? session.status : 'not_attempted',
+                    score: session ? session.score : null,
+                    passed: isPassed || false,
+                    completedAt: session ? session.completedAt : null,
+                    hasSession: !!session
+                  };
                 }) : [])
               ]
             };
           }) : []
         };
-      }) : []
-    }));
+    });
 
     res.json({
       success: true,
@@ -1052,13 +1065,9 @@ const getUserProgress = async (req, res) => {
         as: 'trailStep',
         include: [
           {
-            model: Trail,
-            include: [
-              {
-                model: Category,
-                where: categoryId ? { id: categoryId } : {}
-              }
-            ]
+            model: Category,
+            as: 'category',
+            where: categoryId ? { id: categoryId } : {}
           }
         ]
       }
@@ -1277,38 +1286,46 @@ const getCategorySummary = async (req, res) => {
       },
       include: [
         {
-          model: Trail,
+          model: TrailStep,
+          as: 'trailSteps',
           required: false,
           include: [
             {
-              model: TrailStep,
+              model: VocabularyMatchingExercises,
               required: false,
               include: [
                 {
-                  model: VocabularyMatchingExercises,
+                  model: ExerciseSession,
+                  as: 'session',
+                  where: { userId },
                   required: false,
-                  include: [
-                    {
-                      model: ExerciseSession,
-                      as: 'session',
-                      where: { userId },
-                      required: false,
-                      attributes: ['id', 'status', 'score', 'completedAt', 'totalQuestions']
-                    }
-                  ]
-                },
+                  attributes: ['id', 'status', 'score', 'completedAt', 'totalQuestions']
+                }
+              ]
+            },
+            {
+              model: SentenceCompletionExercises,
+              required: false,
+              include: [
                 {
-                  model: SentenceCompletionExercises,
+                  model: ExerciseSession,
+                  as: 'session',
+                  where: { userId },
                   required: false,
-                  include: [
-                    {
-                      model: ExerciseSession,
-                      as: 'session',
-                      where: { userId },
-                      required: false,
-                      attributes: ['id', 'status', 'score', 'completedAt', 'totalQuestions']
-                    }
-                  ]
+                  attributes: ['id', 'status', 'score', 'completedAt', 'totalQuestions']
+                }
+              ]
+            },
+            {
+              model: FillBlanksExercises,
+              required: false,
+              include: [
+                {
+                  model: ExerciseSession,
+                  as: 'session',
+                  where: { userId },
+                  required: false,
+                  attributes: ['id', 'status', 'score', 'completedAt', 'totalQuestions']
                 }
               ]
             }
@@ -1330,83 +1347,88 @@ const getCategorySummary = async (req, res) => {
           as: 'trailStep',
           include: [
             {
-              model: Trail,
-              include: [
-                {
-                  model: Category,
-                  where: { language: req.user.targetLanguage }
-                }
-              ]
+              model: Category,
+              as: 'category',
+              where: { language: req.user.targetLanguage }
             }
           ]
         }
       ]
     });
 
-    // Create a map of completed steps by trail
-    const completedStepsByTrail = userProgress.reduce((acc, progress) => {
-      const trailId = progress.trailStep.Trail.id;
-      if (!acc[trailId]) acc[trailId] = 0;
-      acc[trailId]++;
+    // Create a map of completed steps by category
+    const completedStepsByCategory = userProgress.reduce((acc, progress) => {
+      const categoryId = progress.trailStep.category.id;
+      if (!acc[categoryId]) acc[categoryId] = 0;
+      acc[categoryId]++;
       return acc;
     }, {});
 
     // Calculate summary for each category
     const result = categories.map(category => {
-      let totalTrails = 0;
-      let completedTrails = 0;
+      let totalSteps = 0;
+      let completedSteps = 0;
       let totalExercises = 0;
       let passedExercises = 0;
       let failedExercises = 0;
 
-      if (category.Trails) {
-        totalTrails = category.Trails.length;
+      if (category.trailSteps) {
+        totalSteps = category.trailSteps.length;
+        completedSteps = completedStepsByCategory[category.id] || 0;
 
-        category.Trails.forEach(trail => {
-          const trailStepsCount = trail.TrailSteps ? trail.TrailSteps.length : 0;
-          const completedStepsCount = completedStepsByTrail[trail.id] || 0;
-          
-          // A trail is considered completed if all its steps are completed
-          if (trailStepsCount > 0 && completedStepsCount >= trailStepsCount) {
-            completedTrails++;
-          }
-
-          // Count exercises
-          if (trail.TrailSteps) {
-            trail.TrailSteps.forEach(step => {
-              // Count vocabulary matching exercises
-              if (step.VocabularyMatchingExercises) {
-                step.VocabularyMatchingExercises.forEach(exercise => {
-                  totalExercises++;
-                  
-                  if (exercise.session) {
-                    const session = exercise.session;
-                    if (session.status === 'completed') {
-                      // Vocabulary matching exercises are automatically passed if completed
-                      passedExercises++;
-                    }
-                  }
-                });
-              }
+        // Count exercises
+        category.trailSteps.forEach(step => {
+          // Count vocabulary matching exercises
+          if (step.VocabularyMatchingExercises) {
+            step.VocabularyMatchingExercises.forEach(exercise => {
+              totalExercises++;
               
-              // Count sentence completion exercises
-              if (step.SentenceCompletionExercises) {
-                step.SentenceCompletionExercises.forEach(exercise => {
-                  totalExercises++;
-                  
-                  if (exercise.session) {
-                    const session = exercise.session;
-                    if (session.status === 'completed') {
-                      // Sentence completion: check if score meets passing score
-                      const sessionScore = Math.round((session.score / session.totalQuestions) * 100);
-                      if (sessionScore >= step.passingScore) {
-                        passedExercises++;
-                      } else {
-                        failedExercises++;
-                      }
-                    }
+              if (exercise.session) {
+                const session = exercise.session;
+                if (session.status === 'completed') {
+                  // Vocabulary matching exercises are automatically passed if completed
+                  passedExercises++;
+                }
+              }
+            });
+          }
+          
+          // Count sentence completion exercises
+          if (step.SentenceCompletionExercises) {
+            step.SentenceCompletionExercises.forEach(exercise => {
+              totalExercises++;
+              
+              if (exercise.session) {
+                const session = exercise.session;
+                if (session.status === 'completed') {
+                  // Sentence completion: check if score meets passing score
+                  const sessionScore = Math.round((session.score / session.totalQuestions) * 100);
+                  if (sessionScore >= step.passingScore) {
+                    passedExercises++;
+                  } else {
+                    failedExercises++;
                   }
-                });
+                }
+              }
+            });
+          }
+          
+          // Count fill blanks exercises
+          if (step.FillBlanksExercises) {
+            step.FillBlanksExercises.forEach(exercise => {
+              totalExercises++;
+              
+              if (exercise.session) {
+                const session = exercise.session;
+                if (session.status === 'completed') {
+                  // Fill blanks: check if score meets passing score
+                  const sessionScore = Math.round((session.score / session.totalQuestions) * 100);
+                  if (sessionScore >= step.passingScore) {
+                    passedExercises++;
+                  } else {
+                    failedExercises++;
+                  }
+                }
               }
             });
           }
@@ -1420,8 +1442,8 @@ const getCategorySummary = async (req, res) => {
         language: category.language,
         difficulty: category.difficulty,
         iconPath: category.iconPath,
-        trailsCount: totalTrails,
-        completedTrails,
+        trailStepsCount: totalSteps,
+        completedSteps,
         totalExercises,
         passedExercises,
         failedExercises

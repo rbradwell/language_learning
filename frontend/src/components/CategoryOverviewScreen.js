@@ -68,13 +68,13 @@ const CategoryOverviewScreen = ({ navigation }) => {
   };
 
   const renderCategoryCard = (category) => {
-    const totalTrails = category.trailsCount || 0;
-    const completedTrails = category.completedTrails || 0;
+    const totalSteps = category.trailStepsCount || 0;
+    const completedSteps = category.completedSteps || 0;
     const totalExercises = category.totalExercises || 0;
     const passedExercises = category.passedExercises || 0;
     const failedExercises = category.failedExercises || 0;
     
-    const trailProgress = totalTrails > 0 ? (completedTrails / totalTrails) * 100 : 0;
+    const stepProgress = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
     const exerciseProgress = totalExercises > 0 ? (passedExercises / totalExercises) * 100 : 0;
 
     return (
@@ -99,19 +99,19 @@ const CategoryOverviewScreen = ({ navigation }) => {
         )}
 
         <View style={styles.progressSection}>
-          {/* Trail Progress */}
+          {/* Trail Step Progress */}
           <View style={styles.progressItem}>
             <View style={styles.progressHeader}>
-              <Text style={styles.progressLabel}>Trails</Text>
+              <Text style={styles.progressLabel}>Trail Steps</Text>
               <Text style={styles.progressStats}>
-                {completedTrails}/{totalTrails}
+                {completedSteps}/{totalSteps}
               </Text>
             </View>
             <View style={styles.progressBar}>
               <View 
                 style={[
                   styles.progressFill, 
-                  { width: `${trailProgress}%`, backgroundColor: '#4CAF50' }
+                  { width: `${stepProgress}%`, backgroundColor: '#4CAF50' }
                 ]} 
               />
             </View>
@@ -161,7 +161,7 @@ const CategoryOverviewScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.cardFooter}>
-          <Text style={styles.tapHint}>Tap to explore trails</Text>
+          <Text style={styles.tapHint}>Tap to explore trail steps</Text>
           <Text style={styles.arrow}>→</Text>
         </View>
       </TouchableOpacity>

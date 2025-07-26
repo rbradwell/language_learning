@@ -84,9 +84,9 @@ const TrailStepsScreen = ({ route, navigation }) => {
   // Refresh data when screen comes into focus (user navigates back)
   useFocusEffect(
     useCallback(() => {
-      if (!animationInProgress.current) {
-        fetchTrailSteps();
-      }
+      // Always refresh when coming back from an exercise, even if animation is in progress
+      console.log('Screen focused, refreshing trail steps data...');
+      fetchTrailSteps();
     }, [])
   );
 
@@ -153,6 +153,42 @@ const TrailStepsScreen = ({ route, navigation }) => {
       if (data.success) {
         // Find the specific category data
         const categoryDetails = data.data.find(cat => cat.id === category.id);
+        console.log('Trail steps data loaded:', {
+          categoryName: categoryDetails?.name,
+          trailStepsCount: categoryDetails?.trailSteps?.length
+        });
+        
+        // Log trail step completion status for debugging
+        if (categoryDetails?.trailSteps) {
+          console.log('\n=== DETAILED TRAIL STEP STATUS ===');
+          categoryDetails.trailSteps.forEach((step, index) => {
+            const completedExercises = step.exercises?.filter(ex => ex.passed).length || 0;
+            const isStepFullyCompleted = completedExercises >= step.exercisesCount && step.exercisesCount > 0;
+            console.log(`\nTRAIL STEP ${step.stepNumber} - ${step.type.toUpperCase()}:`);
+            console.log(`  - Exercises: ${completedExercises}/${step.exercisesCount} completed`);
+            console.log(`  - Step fully completed: ${isStepFullyCompleted}`);
+            console.log(`  - Step unlocked: ${step.isUnlocked}`);
+            console.log(`  - Passing score required: ${step.passingScore}%`);
+            
+            if (step.exercises && step.exercises.length > 0) {
+              step.exercises.forEach((ex, exIndex) => {
+                console.log(`    Exercise ${exIndex + 1}:`, {
+                  id: ex.id,
+                  type: ex.type,
+                  passed: ex.passed,
+                  sessionStatus: ex.exerciseStatus,
+                  sessionId: ex.sessionId,
+                  score: ex.score,
+                  hasSession: ex.hasSession
+                });
+              });
+            } else {
+              console.log(`    No exercises found for this step`);
+            }
+          });
+          console.log('\n=== END TRAIL STEP STATUS ===\n');
+        }
+        
         safeSetCategoryData(categoryDetails);
 
         // Only trigger animation if none is in progress and frog hasn't jumped yet
@@ -166,18 +202,29 @@ const TrailStepsScreen = ({ route, navigation }) => {
           frogOpacity.setValue(1);
           
           animationTimeoutRef.current = setTimeout(() => {
-            if (isMountedRef.current && categoryDetails && categoryDetails.trails && categoryDetails.trails[0]) {
-              const trail = categoryDetails.trails[0];
-              const nextOpenStep = trail.trailSteps.find(step => {
+            if (isMountedRef.current && categoryDetails && categoryDetails.trailSteps) {
+              const nextOpenStep = categoryDetails.trailSteps.find(step => {
                 const completedExercises = step.exercises?.filter(ex => ex.passed).length || 0;
-                return step.isUnlocked && (completedExercises < step.exercisesCount || step.exercisesCount === 0);
+                const hasIncompleteExercises = completedExercises < step.exercisesCount;
+                const isStepUnlocked = step.isUnlocked;
+                const isStepFullyCompleted = completedExercises >= step.exercisesCount && step.exercisesCount > 0;
+                
+                console.log(`FROG TARGET CHECK - Step ${step.stepNumber} (${step.type}):`);
+                console.log(`  - Unlocked: ${isStepUnlocked}`);
+                console.log(`  - Exercises: ${completedExercises}/${step.exercisesCount}`);
+                console.log(`  - Has incomplete: ${hasIncompleteExercises}`);
+                console.log(`  - Fully completed: ${isStepFullyCompleted}`);
+                
+                // Find the first unlocked step that has incomplete exercises
+                // (Don't target fully completed steps)
+                return isStepUnlocked && hasIncompleteExercises && step.exercisesCount > 0;
               });
 
               if (nextOpenStep) {
                 console.log('Starting frog jump animation...');
                 const targetPosition = getStepStonePosition(
                   nextOpenStep.stepNumber,
-                  trail.trailStepsCount,
+                  categoryDetails.trailStepsCount,
                   screenHeight - 140
                 );
                 // Animate to target rotation to see if it matches
@@ -250,8 +297,8 @@ const TrailStepsScreen = ({ route, navigation }) => {
     };
   };
 
-  const renderSteppingStone = (trailStep, stepIndex, trail, availableHeight) => {
-    const position = getStepStonePosition(trailStep.stepNumber, trail.trailStepsCount, availableHeight);
+  const renderSteppingStone = (trailStep, stepIndex, categoryData, availableHeight) => {
+    const position = getStepStonePosition(trailStep.stepNumber, categoryData.trailStepsCount, availableHeight);
     const isUnlocked = trailStep.isUnlocked;
     const hasExercises = trailStep.exercisesCount > 0;
     const horizontalOffset = position.horizontalOffset;
@@ -266,7 +313,7 @@ const TrailStepsScreen = ({ route, navigation }) => {
     const isPartiallyCompleted = completedExercises > 0 && completedExercises < totalExercises;
     
     // Show frog on target step after jump animation completes
-    const allSteps = trail.trailSteps || [];
+    const allSteps = categoryData.trailSteps || [];
     const firstIncompleteStep = allSteps.find(step => {
       const passedExercises = step.exercises?.filter(ex => ex.passed).length || 0;
       const stepTotal = step.exercisesCount || 0;
@@ -293,14 +340,12 @@ const TrailStepsScreen = ({ route, navigation }) => {
 
       console.log('Navigating with params:', {
         trailStep: trailStep,
-        trail: trail,
         category: category
       });
 
       // Navigate to exercises for this trail step
       navigation.navigate('TrailStepExercises', {
         trailStep: trailStep,
-        trail: trail,
         category: category
       });
     };
@@ -393,23 +438,23 @@ const TrailStepsScreen = ({ route, navigation }) => {
     );
   };
 
-  const renderTrail = (trail) => {
-    if (!trail.trailSteps || trail.trailSteps.length === 0) {
+  const renderTrailSteps = () => {
+    if (!categoryData?.trailSteps || categoryData.trailSteps.length === 0) {
       return (
-        <View key={trail.id} style={styles.emptyTrail}>
-          <Text style={styles.emptyTrailText}>No steps available in this trail yet</Text>
+        <View key={categoryData?.id || 'empty'} style={styles.emptyTrail}>
+          <Text style={styles.emptyTrailText}>No steps available in this category yet</Text>
         </View>
       );
     }
 
     // Calculate progress information
-    const completedSteps = trail.trailSteps.filter(step => {
+    const completedSteps = categoryData.trailSteps.filter(step => {
       const completedExercises = step.exercises?.filter(ex => ex.passed).length || 0;
       const totalExercises = step.exercisesCount || 0;
       return completedExercises === totalExercises && totalExercises > 0;
     }).length;
     
-    const nextOpenStep = trail.trailSteps.find(step => {
+    const nextOpenStep = categoryData.trailSteps.find(step => {
       const passedExercises = step.exercises?.filter(ex => ex.passed).length || 0;
       const stepTotal = step.exercisesCount || 0;
       const isStepCompleted = passedExercises === stepTotal && stepTotal > 0;
@@ -424,7 +469,7 @@ const TrailStepsScreen = ({ route, navigation }) => {
 
 
     return (
-      <View key={trail.id} style={styles.trailContainer}>
+      <View key={categoryData.id} style={styles.trailContainer}>
         {/* Lily Pond Background - fills remaining space */}
         <View style={styles.pondBackground}>
           <View style={styles.pondSvg}>
@@ -483,8 +528,8 @@ const TrailStepsScreen = ({ route, navigation }) => {
             />
           </Animated.View>
           
-          {trail.trailSteps.map((trailStep, stepIndex) => 
-            renderSteppingStone(trailStep, stepIndex, trail, screenHeight - 140)
+          {categoryData.trailSteps.map((trailStep, stepIndex) => 
+            renderSteppingStone(trailStep, stepIndex, categoryData, screenHeight - 140)
           )}
         </View>
       </View>
@@ -500,12 +545,12 @@ const TrailStepsScreen = ({ route, navigation }) => {
     );
   }
 
-  if (!categoryData || !categoryData.trails || categoryData.trails.length === 0) {
+  if (!categoryData || !categoryData.trailSteps || categoryData.trailSteps.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyTitle}>No Trails Available</Text>
+        <Text style={styles.emptyTitle}>No Trail Steps Available</Text>
         <Text style={styles.emptyText}>
-          This category doesn't have any learning trails yet.
+          This category doesn't have any trail steps yet.
         </Text>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Text style={styles.backButtonText}>Back to Categories</Text>
@@ -530,7 +575,7 @@ const TrailStepsScreen = ({ route, navigation }) => {
         </View>
       </View>
       
-      {categoryData.trails.map(renderTrail)}
+      {renderTrailSteps()}
     </View>
   );
 };

@@ -7,7 +7,7 @@
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
       },
-      trailId: {
+      categoryId: {
         type: DataTypes.UUID,
         allowNull: false
       },
@@ -34,8 +34,9 @@
     });
   
     TrailStep.associate = (models) => {
-      TrailStep.belongsTo(models.Trail, {
-        foreignKey: 'trailId'
+      TrailStep.belongsTo(models.Category, {
+        foreignKey: 'categoryId',
+        as: 'category'
       });
       TrailStep.hasMany(models.Exercise, {
         foreignKey: 'trailStepId'
@@ -44,6 +45,9 @@
         foreignKey: 'trailStepId'
       });
       TrailStep.hasMany(models.SentenceCompletionExercises, {
+        foreignKey: 'trailStepId'
+      });
+      TrailStep.hasMany(models.FillBlanksExercises, {
         foreignKey: 'trailStepId'
       });
       TrailStep.hasMany(models.UserProgress, {

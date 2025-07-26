@@ -13,7 +13,7 @@ import {
 import AuthService from '../services/authService';
 
 const VocabularyMatchingGame = ({ route, navigation }) => {
-  const { trailStep, trail, category } = route?.params || {};
+  const { trailStep, category } = route?.params || {};
   
   // Game states
   const [gameState, setGameState] = useState('loading'); // loading, countdown, playing, completed
@@ -59,8 +59,8 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
   useEffect(() => {
     const initializeGame = async () => {
       // Check if we have the required parameters
-      if (!trailStep || !trail || !category) {
-        console.error('Missing required parameters:', { trailStep, trail, category });
+      if (!trailStep || !category) {
+        console.error('Missing required parameters:', { trailStep, category });
         setHasError(true);
         return;
       }
@@ -128,10 +128,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
         const categoryData = data.data.find(cat => cat.id === category.id);
         console.log('Category Data:', categoryData);
         
-        const trailData = categoryData?.trails.find(t => t.id === trail.id);
-        console.log('Trail Data:', trailData);
-        
-        const stepData = trailData?.trailSteps.find(ts => ts.id === trailStep.id);
+        const stepData = categoryData?.trailSteps.find(ts => ts.id === trailStep.id);
         console.log('Step Data:', stepData);
         
         if (stepData?.exercises && stepData.exercises.length > 0) {
@@ -576,8 +573,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
       const data = await response.json();
       if (data.success) {
         const categoryData = data.data.find(cat => cat.id === category.id);
-        const trailData = categoryData?.trails.find(t => t.id === trail.id);
-        const stepData = trailData?.trailSteps.find(ts => ts.id === trailStep.id);
+        const stepData = categoryData?.trailSteps.find(ts => ts.id === trailStep.id);
         
         if (stepData?.exercises) {
           // Store updated step data for the completion screen
@@ -593,10 +589,10 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
           // Check if current step is complete (all exercises passed)
           const allExercisesPassed = stepData.exercises.every(ex => ex.passed);
           
-          // If current step is complete, find next step in trail
+          // If current step is complete, find next step in category
           if (allExercisesPassed) {
             const currentStepNumber = trailStep.stepNumber;
-            const nextStep = trailData?.trailSteps?.find(step => 
+            const nextStep = categoryData?.trailSteps?.find(step => 
               step.stepNumber === currentStepNumber + 1 && step.isUnlocked
             );
             
@@ -800,7 +796,6 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
                   onPress={() => {
                     // Navigate to the next step
                     navigation.navigate('TrailSteps', {
-                      trail: trail,
                       category: category,
                       highlightStepId: nextStep.id
                     });

@@ -1,35 +1,13 @@
-// models/Trail.js
-const { DataTypes } = require('sequelize');
-module.exports = (sequelize) => {
-    const Trail = sequelize.define('Trail', {
-      id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
-      },
-      name: {
-        type: DataTypes.STRING,
-        allowNull: false
-      },
-      categoryId: {
-        type: DataTypes.UUID,
-        allowNull: false
-      },
-      order: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-      }
-    });
-  
-    Trail.associate = (models) => {
-      // FIX: Explicitly specify the foreign key
-      Trail.belongsTo(models.Category, {
-        foreignKey: 'categoryId'
-      });
-      Trail.hasMany(models.TrailStep, {
-        foreignKey: 'trailId'
-      });
-    };
-  
-    return Trail;
+// This file has been removed as part of the Trails table elimination
+// TrailSteps now connect directly to Categories
+// This file should be deleted from the filesystem
+
+// Temporary placeholder to prevent app crashes during transition
+module.exports = () => {
+  // Return a dummy model that won't be used
+  return {
+    name: 'Trail_DEPRECATED',
+    associate: () => {},
+    // Empty model that should never be used
+  };
 };

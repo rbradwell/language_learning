@@ -27,7 +27,7 @@ const WordButton = ({ word, onPress, style, textStyle }) => (
 );
 
 const SentenceCompletionGame = ({ route, navigation }) => {
-  const { trailStep, trail, category } = route?.params || {};
+  const { trailStep, category } = route?.params || {};
   
   // Game state
   const [loading, setLoading] = useState(true);
@@ -99,7 +99,12 @@ const SentenceCompletionGame = ({ route, navigation }) => {
         return;
       }
 
-      console.log('Exercise found:', sentenceExercise.id);
+      console.log('=== SENTENCE EXERCISE START DEBUG ===');
+      console.log('TrailStep ID:', trailStep?.id);
+      console.log('TrailStep type:', trailStep?.type);
+      console.log('Found sentence exercise ID:', sentenceExercise.id);
+      console.log('All exercises in step:', exercises.map(ex => ({ id: ex.id, type: ex.type })));
+      console.log('=== END START DEBUG ===');
       
       const response = await AuthService.authenticatedFetch('/exercises/start-exercise', {
         method: 'POST',
