@@ -11,7 +11,8 @@ const {
   getTrailStepsProgress,    // Get comprehensive progress overview
   getCategorySummary,       // Get category overview with statistics
   createExerciseSession,    // Start an exercise session
-  getSessionProgress        // Get session-specific progress
+  getSessionProgress,       // Get session-specific progress
+  validateSession           // Validate session is still active
 } = require('../controllers/exerciseController');
 
 // Get category summary with trail and exercise statistics
@@ -53,5 +54,8 @@ router.get('/session-progress/:sessionId', authMiddleware, getSessionProgress);
 
 // Get vocabulary that user struggles with
 router.get('/weak-vocabulary', authMiddleware, getWeakVocabulary);
+
+// Validate if a session is still active
+router.get('/validate-session/:sessionId', authMiddleware, validateSession);
 
 module.exports = router;

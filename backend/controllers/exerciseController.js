@@ -195,7 +195,7 @@ const getTrailStepsProgress = async (req, res) => {
                   
                   return {
                     id: exercise.id,
-                    type: 'vocabulary_matching',
+                    type: step.type, // Use the trail step type (vocabulary_matching or vocabulary_matching_reverse)
                     sessionId: session ? session.id : null,
                     exerciseStatus: session ? session.status : 'not_attempted',
                     score: session ? session.score : null,
@@ -1462,11 +1462,51 @@ const getCategorySummary = async (req, res) => {
   }
 };
 
+// Validate if a session is still active
+const validateSession = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { sessionId } = req.params;
+
+    const session = await ExerciseSession.findOne({
+      where: {
+        id: sessionId,
+        userId,
+        status: 'in_progress'
+      }
+    });
+
+    const isActive = session && new Date() <= session.expiresAt;
+    
+    if (!isActive && session) {
+      // Mark expired session as abandoned
+      await session.update({ status: 'abandoned' });
+    }
+
+    res.json({
+      success: true,
+      isActive: !!isActive,
+      sessionId,
+      expiresAt: session?.expiresAt,
+      status: session?.status || 'not_found'
+    });
+
+  } catch (error) {
+    console.error('Error validating session:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getTrailStepsProgress,
   getCategorySummary,    // Add this new function
   createExerciseSession,
   submitAnswer,
+  validateSession,       // Add session validation
   getExercisesByTrailStep,
   getUserProgress,
   getWeakVocabulary,
