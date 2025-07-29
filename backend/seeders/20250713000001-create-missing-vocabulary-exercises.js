@@ -49,8 +49,6 @@ module.exports = {
             trailStepId: step.id,
             vocabularyIds: JSON.stringify(vocabularyIds),
             instructions: 'Match the words with their translations',
-            category: step.categoryName,
-            order: 1,
             createdAt: new Date(),
             updatedAt: new Date()
           });

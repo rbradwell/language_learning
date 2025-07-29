@@ -21,16 +21,6 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: 'Match the words with their translations'
-    },
-    category: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      comment: 'Category name for this exercise'
-    },
-    order: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 1
     }
   });
 

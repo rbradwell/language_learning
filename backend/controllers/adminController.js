@@ -167,9 +167,7 @@ const bulkCreateVocabularyExercises = async (req, res) => {
         const exercise = await VocabularyMatchingExercises.create({
           trailStepId: plan.trailStep.id,
           vocabularyIds: group.map(v => v.id),
-          instructions: 'Match the words with their translations',
-          category: plan.trailStep.category,
-          order: i + 1
+          instructions: 'Match the words with their translations'
         });
         createdExercises.push({
           ...exercise.toJSON(),
@@ -196,7 +194,6 @@ const bulkCreateVocabularyExercises = async (req, res) => {
           id: ex.id,
           trailStepName: ex.trailStepName,
           categoryName: ex.categoryName,
-          order: ex.order,
           vocabularyCount: ex.vocabularyIds.length
         }))
       }

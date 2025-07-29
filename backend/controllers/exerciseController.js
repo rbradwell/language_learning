@@ -196,7 +196,6 @@ const getTrailStepsProgress = async (req, res) => {
                   return {
                     id: exercise.id,
                     type: 'vocabulary_matching',
-                    order: exercise.order,
                     sessionId: session ? session.id : null,
                     exerciseStatus: session ? session.status : 'not_attempted',
                     score: session ? session.score : null,
@@ -220,7 +219,6 @@ const getTrailStepsProgress = async (req, res) => {
                   return {
                     id: exercise.id,
                     type: 'sentence_completion',
-                    order: exercise.order,
                     difficulty: exercise.difficulty,
                     sessionId: session ? session.id : null,
                     exerciseStatus: session ? session.status : 'not_attempted',
@@ -245,7 +243,6 @@ const getTrailStepsProgress = async (req, res) => {
                   return {
                     id: exercise.id,
                     type: 'fill_blanks',
-                    order: exercise.order,
                     difficulty: exercise.difficulty,
                     sessionId: session ? session.id : null,
                     exerciseStatus: session ? session.status : 'not_attempted',
