@@ -677,7 +677,12 @@ const SentenceCompletionGame = ({ route, navigation }) => {
           <View style={styles.buttonRow}>
             <TouchableOpacity
               style={[styles.actionButton, styles.primaryButton]}
-              onPress={() => navigation.goBack()}
+              onPress={() => {
+                // Navigate back to trail steps, clearing the exercise stack
+                navigation.navigate('TrailSteps', {
+                  category: category
+                });
+              }}
             >
               <Text style={styles.primaryButtonText}>Continue</Text>
             </TouchableOpacity>

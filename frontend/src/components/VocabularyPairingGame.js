@@ -724,7 +724,12 @@ const VocabularyPairingGame = ({ route, navigation }) => {
                 <View style={styles.buttonRow}>
                   <TouchableOpacity
                     style={[styles.actionButton, styles.secondaryButton]}
-                    onPress={() => navigation.goBack()}
+                    onPress={() => {
+                      // Navigate back to trail steps, clearing the exercise stack
+                      navigation.navigate('TrailSteps', {
+                        category: category
+                      });
+                    }}
                   >
                     <Text style={styles.secondaryButtonText}>Back to Steps</Text>
                   </TouchableOpacity>

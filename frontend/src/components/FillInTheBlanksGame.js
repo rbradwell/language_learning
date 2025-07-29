@@ -628,8 +628,10 @@ const FillInTheBlanksGame = ({ route, navigation }) => {
             setCreatedWords([]); // Reset created words BEFORE setting up next sentence
             setupCurrentSentence(sessionData, nextIndex, []); // Pass empty array for created words
           } else {
-            // Exercise complete
-            navigation.goBack();
+            // Exercise complete - navigate back to trail steps
+            navigation.navigate('TrailSteps', {
+              category: category
+            });
           }
         }, 1400);
       } else {
@@ -658,7 +660,15 @@ const FillInTheBlanksGame = ({ route, navigation }) => {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Unable to load exercise</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => {
+            // Navigate back to trail steps
+            navigation.navigate('TrailSteps', {
+              category: category
+            });
+          }}
+        >
           <Text style={styles.backButtonText}>Go Back</Text>
         </TouchableOpacity>
       </View>
