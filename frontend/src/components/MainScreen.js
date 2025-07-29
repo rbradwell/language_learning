@@ -5,6 +5,7 @@ import CategoryOverviewScreen from './CategoryOverviewScreen';  // New primary s
 import TrailStepsScreen from './TrailStepsScreen';              // New stepping stones screen
 import TrailProgressScreen from './TrailProgressScreen';        // Keep as legacy/backup
 import VocabularyMatchingGame from './VocabularyMatchingGame';  // Vocabulary matching game
+import VocabularyPairingGame from './VocabularyPairingGame';    // Vocabulary pairing game
 import SentenceCompletionGame from './SentenceCompletionGame';  // Sentence completion game
 import FillInTheBlanksGame from './FillInTheBlanksGame';        // Fill in the blanks game
 import { useAuth } from '../context/AuthContext';
@@ -44,6 +45,9 @@ const TrailStepExercisesScreen = ({ route, navigation }) => {
     case 'vocabulary_matching':
     case 'vocabulary_matching_reverse':
       return <VocabularyMatchingGame route={route} navigation={navigation} />;
+    
+    case 'vocabulary_pairing':
+      return <VocabularyPairingGame route={route} navigation={navigation} />;
     
     case 'sentence_completion':
       return <SentenceCompletionGame route={route} navigation={navigation} />;
