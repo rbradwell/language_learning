@@ -15,6 +15,10 @@ import AuthService from '../services/authService';
 const VocabularyMatchingGame = ({ route, navigation }) => {
   const { trailStep, category } = route?.params || {};
   
+  // Determine exercise direction based on trail step type
+  const isReverseDirection = trailStep?.type === 'vocabulary_matching_reverse';
+  const exerciseDirection = isReverseDirection ? 'target_to_native' : 'native_to_target';
+  
   // Game states
   const [gameState, setGameState] = useState('loading'); // loading, countdown, playing, completed
   const [hasError, setHasError] = useState(false);
@@ -24,6 +28,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
+  const [completedNativeToTarget, setCompletedNativeToTarget] = useState(false);
   const [exerciseSession, setExerciseSession] = useState(null);
   const [vocabularyData, setVocabularyData] = useState([]);
   const [incorrectAnswers, setIncorrectAnswers] = useState(new Set());
@@ -265,6 +270,7 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
         setTotalQuestions(data.session.totalQuestions);
         setCurrentQuestionIndex(0);
         setIncorrectAnswers(new Set());
+        setCompletedNativeToTarget(false);
         
         // Generate first question
         generateQuestion(data.exercise.content.vocabulary, 0, new Set());
@@ -285,55 +291,77 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
 
   const generateQuestion = (vocabulary, questionIndex, incorrectSet) => {
     if (questionIndex >= vocabulary.length) {
-      return null;
+      return null; // No more questions
     }
 
     // Reset feedback state when generating new question
     updateFeedbackState(false);
 
     const currentVocab = vocabulary[questionIndex];
-    const correctAnswer = currentVocab.targetWord;
     
-    // Get all other vocabulary items (excluding the current one) with their target words and pronunciations
-    const otherVocabItems = vocabulary
-      .filter((_, index) => index !== questionIndex)
-      .filter(v => v.targetWord !== correctAnswer); // Ensure no duplicates
+    let questionWord, correctAnswer, optionsWithPronunciation, originalOptions;
     
-    // Randomly select distractors from available vocabulary (backend ensures enough are provided)
-    const shuffledDistractors = [...otherVocabItems].sort(() => Math.random() - 0.5);
-    // Take up to 3 distractors for a 4-option multiple choice question
-    const distractorItems = shuffledDistractors.slice(0, 3);
-    
-    // Create options array with pronunciation: correct answer + distractors, then shuffle
-    const allOptions = [currentVocab, ...distractorItems];
-    const shuffledOptions = allOptions.sort(() => Math.random() - 0.5);
-    
-    // Format options with pronunciation for display
-    const optionsWithPronunciation = shuffledOptions.map(vocabItem => {
-      const targetWord = vocabItem.targetWord;
-      const pronunciation = vocabItem.pronunciation;
+    if (isReverseDirection) {
+      // Target to Native: Show Chinese with pinyin, select English
+      questionWord = currentVocab.pronunciation ? 
+        `${currentVocab.targetWord} (${currentVocab.pronunciation})` : 
+        currentVocab.targetWord;
+      correctAnswer = currentVocab.nativeWord;
       
-      // Add pronunciation in brackets for Mandarin characters
-      return pronunciation ? `${targetWord} (${pronunciation})` : targetWord;
-    });
-    
-    // Keep original target words for answer checking
-    const originalOptions = shuffledOptions.map(vocabItem => vocabItem.targetWord);
+      // Get all other vocabulary items (excluding the current one)
+      const otherVocabItems = vocabulary
+        .filter((_, index) => index !== questionIndex)
+        .filter(v => v.nativeWord !== correctAnswer);
+      
+      const shuffledDistractors = [...otherVocabItems].sort(() => Math.random() - 0.5);
+      const distractorItems = shuffledDistractors.slice(0, 3);
+      
+      const allOptions = [currentVocab, ...distractorItems];
+      const shuffledOptions = allOptions.sort(() => Math.random() - 0.5);
+      
+      // For target_to_native, options are native words (no pronunciation needed)
+      optionsWithPronunciation = shuffledOptions.map(vocabItem => vocabItem.nativeWord);
+      originalOptions = shuffledOptions.map(vocabItem => vocabItem.nativeWord);
+      
+    } else {
+      // Native to Target: Show English, select Chinese
+      questionWord = currentVocab.nativeWord;
+      correctAnswer = currentVocab.targetWord;
+      
+      // Get all other vocabulary items (excluding the current one)
+      const otherVocabItems = vocabulary
+        .filter((_, index) => index !== questionIndex)
+        .filter(v => v.targetWord !== correctAnswer);
+      
+      const shuffledDistractors = [...otherVocabItems].sort(() => Math.random() - 0.5);
+      const distractorItems = shuffledDistractors.slice(0, 3);
+      
+      const allOptions = [currentVocab, ...distractorItems];
+      const shuffledOptions = allOptions.sort(() => Math.random() - 0.5);
+      
+      // Format options with pronunciation for display
+      optionsWithPronunciation = shuffledOptions.map(vocabItem => {
+        const targetWord = vocabItem.targetWord;
+        const pronunciation = vocabItem.pronunciation;
+        return pronunciation ? `${targetWord} (${pronunciation})` : targetWord;
+      });
+      
+      originalOptions = shuffledOptions.map(vocabItem => vocabItem.targetWord);
+    }
     
     console.log('Generated question:');
-    console.log('Native word:', currentVocab.nativeWord);
+    console.log('Direction:', isReverseDirection ? 'target_to_native' : 'native_to_target');
+    console.log('Question word:', questionWord);
     console.log('Correct answer:', correctAnswer);
-    console.log('Options with pronunciation:', optionsWithPronunciation);
-    console.log('Original options:', originalOptions);
-    console.log('Correct answer included?', originalOptions.includes(correctAnswer));
+    console.log('Options:', optionsWithPronunciation);
     
     const question = {
       vocabularyId: currentVocab.id,
-      questionWord: currentVocab.nativeWord,
+      questionWord: questionWord,
       correctAnswer: correctAnswer,
       options: originalOptions, // For answer checking
       optionsWithPronunciation: optionsWithPronunciation, // For display
-      exerciseDirection: 'native_to_target'
+      exerciseDirection: exerciseDirection
     };
     
     setCurrentQuestion(question);
@@ -384,10 +412,14 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
           
           setTimeout(() => {
             if (data.sessionComplete) {
+              // Session complete - for now, complete the exercise after first direction
+              // TODO: Implement second direction with new session or extended session
               completeExercise(data.currentScore, gameTimer);
             } else {
-              // Generate next question - server will determine which vocabulary to show next
-              generateNextQuestionFromServer();
+              // Generate next question in current direction
+              const nextIndex = currentQuestionIndex + 1;
+              setCurrentQuestionIndex(nextIndex);
+              generateQuestion(vocabularyData, nextIndex, incorrectAnswers);
             }
           }, 1000);
         } else {
@@ -417,6 +449,29 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
             }
           ]
         );
+      } else if (data.message === 'Active session not found' || data.message === 'Session has expired') {
+        // Handle expired or missing session by restarting the exercise
+        console.log('Session expired/not found, restarting exercise...');
+        Alert.alert(
+          'Session Expired',
+          'Your exercise session has expired. The exercise will restart automatically.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Restart the exercise
+                if (currentExercise) {
+                  const exerciseToRestart = { ...currentExercise, exerciseStatus: 'not_attempted' };
+                  setCurrentExercise(exerciseToRestart);
+                  exerciseRef.current = exerciseToRestart;
+                  setCompletedNativeToTarget(false);
+                  setCurrentQuestionIndex(0);
+                  startCountdown();
+                }
+              }
+            }
+          ]
+        );
       } else {
         // Handle other errors
         console.error('Server error:', data);
@@ -425,7 +480,38 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
     } catch (error) {
       console.error('Error submitting answer:', error);
       console.error('Error details:', error.message);
-      Alert.alert('Error', `Failed to submit answer: ${error.message}`);
+      
+      // Check if it's a network error that might indicate session issues
+      if (error.message.includes('fetch') || error.message.includes('network')) {
+        Alert.alert(
+          'Connection Error',
+          'There was a problem connecting to the server. Please check your internet connection and try again.',
+          [
+            {
+              text: 'Retry',
+              onPress: () => {
+                // Retry the same answer
+                submitAnswer(selectedAnswer);
+              }
+            },
+            {
+              text: 'Restart Exercise',
+              onPress: () => {
+                if (currentExercise) {
+                  const exerciseToRestart = { ...currentExercise, exerciseStatus: 'not_attempted' };
+                  setCurrentExercise(exerciseToRestart);
+                  exerciseRef.current = exerciseToRestart;
+                  setCompletedNativeToTarget(false);
+                  setCurrentQuestionIndex(0);
+                  startCountdown();
+                }
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', `Failed to submit answer: ${error.message}`);
+      }
     }
   };
 
@@ -661,15 +747,22 @@ const VocabularyMatchingGame = ({ route, navigation }) => {
         {/* Timer and Progress */}
         <View style={styles.gameHeader}>
           <Text style={styles.timer}>Time: {formatTime(gameTimer)}</Text>
-          <Text style={styles.progress}>
-            {currentQuestionIndex + 1} / {totalQuestions}
-          </Text>
+          <View style={styles.progressContainer}>
+            <Text style={styles.directionLabel}>
+              {isReverseDirection ? 'Chinese → English' : 'English → Chinese'}
+            </Text>
+            <Text style={styles.progress}>
+              {currentQuestionIndex + 1} / {vocabularyData.length}
+            </Text>
+          </View>
         </View>
 
-        {/* Native Word */}
+        {/* Question Word */}
         <View style={styles.questionContainer}>
-          <Text style={styles.questionLabel}>Translate:</Text>
-          <Text style={styles.nativeWord}>{currentQuestion.questionWord}</Text>
+          <Text style={styles.questionLabel}>
+            {isReverseDirection ? 'Select the English translation:' : 'Select the Chinese translation:'}
+          </Text>
+          <Text style={styles.questionWord}>{currentQuestion.questionWord}</Text>
         </View>
 
         {/* Answer Options */}
@@ -920,6 +1013,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#007AFF',
   },
+  progressContainer: {
+    alignItems: 'flex-end',
+  },
+  directionLabel: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
   progress: {
     fontSize: 16,
     color: '#666',
@@ -941,7 +1043,7 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 10,
   },
-  nativeWord: {
+  questionWord: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#333',

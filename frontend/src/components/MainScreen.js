@@ -42,6 +42,7 @@ const TrailStepExercisesScreen = ({ route, navigation }) => {
   // Route to appropriate exercise component based on type
   switch (exerciseType) {
     case 'vocabulary_matching':
+    case 'vocabulary_matching_reverse':
       return <VocabularyMatchingGame route={route} navigation={navigation} />;
     
     case 'sentence_completion':
