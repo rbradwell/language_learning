@@ -218,7 +218,13 @@ const VocabularyPairingGame = ({ route, navigation }) => {
     } else {
       // Select new native word
       setSelectedNative(vocab);
-      setSelectedTarget(null); // Clear target selection
+      
+      // If we also have a target word selected, check for match
+      if (selectedTarget) {
+        checkMatch(vocab, selectedTarget);
+      } else {
+        setSelectedTarget(null); // Clear target selection if no match to check
+      }
     }
   };
 
@@ -235,6 +241,8 @@ const VocabularyPairingGame = ({ route, navigation }) => {
       // If we also have a native word selected, check for match
       if (selectedNative) {
         checkMatch(selectedNative, vocab);
+      } else {
+        setSelectedNative(null); // Clear native selection if no match to check
       }
     }
   };
