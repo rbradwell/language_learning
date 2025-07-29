@@ -16,7 +16,7 @@
         allowNull: false
       },
       type: {
-        type: DataTypes.ENUM('vocabulary_matching', 'vocabulary_matching_reverse', 'sentence_completion', 'fill_blanks'),
+        type: DataTypes.ENUM('vocabulary_matching', 'vocabulary_matching_reverse', 'vocabulary_pairing', 'sentence_completion', 'fill_blanks'),
         allowNull: false
       },
       stepNumber: {
