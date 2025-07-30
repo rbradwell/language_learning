@@ -4,6 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import CategoryOverviewScreen from './CategoryOverviewScreen';  // New primary screen
 import TrailStepsScreen from './TrailStepsScreen';              // New stepping stones screen
 import TrailProgressScreen from './TrailProgressScreen';        // Keep as legacy/backup
+import VocabularyFlashcardsGame from './VocabularyFlashcardsGame'; // Vocabulary flashcards game
 import VocabularyMatchingGame from './VocabularyMatchingGame';  // Vocabulary matching game
 import VocabularyPairingGame from './VocabularyPairingGame';    // Vocabulary pairing game
 import SentenceCompletionGame from './SentenceCompletionGame';  // Sentence completion game
@@ -42,6 +43,9 @@ const TrailStepExercisesScreen = ({ route, navigation }) => {
   
   // Route to appropriate exercise component based on type
   switch (exerciseType) {
+    case 'vocabulary_flashcards':
+      return <VocabularyFlashcardsGame route={route} navigation={navigation} />;
+    
     case 'vocabulary_matching':
     case 'vocabulary_matching_reverse':
       return <VocabularyMatchingGame route={route} navigation={navigation} />;
